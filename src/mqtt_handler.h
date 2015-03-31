@@ -3,6 +3,6 @@
 #include <stdio.h>
 #include "mqtt_packet.h"
 
-int mqtt_handle_connect(struct mqtt_packet * packet);
+int mqtt_handler_connect(struct mqtt_packet * packet);
 
 #endif

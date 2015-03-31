@@ -2,9 +2,21 @@
 #define _MQTT_PACKET_H_
 
 #include <stdint.h>
+#include "net.h"
+
+struct conn_flag
+{
+    uint8_t f_uname;
+    uint8_t f_pwd;
+    uint8_t f_will_retain;
+    uint8_t f_will_qos;
+    uint8_t f_will;
+    uint8_t f_clean;
+};
 
 struct mqtt_packet
 {
+    struct fds *fd;
     uint8_t *payload;
     uint8_t  command;
     /* the maxium remain length is 268435455 */
@@ -13,8 +25,19 @@ struct mqtt_packet
     uint8_t remain_count;
     uint32_t packet_len;
     uint32_t pos;
+    struct conn_flag conn_f;
+    uint16_t alive_timer;
 };
 
 int mqtt_packet_alloc(struct mqtt_packet *packet);
+int mqtt_remain_length(struct mqtt_packet *packet);
+int mqtt_read_payload(struct mqtt_packet *packet);
+int mqtt_payload_byte(struct mqtt_packet *packet, uint8_t *byte);
+int mqtt_payload_bytes(struct mqtt_packet *packet, uint8_t *bytes, uint16_t len);
+int mqtt_str(struct mqtt_packet *packet, void *pstr);
+int mqtt_read_protocol_name(struct mqtt_packet *packet);
+int mqtt_read_protocol_version(struct mqtt_packet *packet);
+int mqtt_read_connect_flags(struct mqtt_packet *packet);
+int mqtt_read_livetimer(struct mqtt_packet *packet);
 
 #endif
