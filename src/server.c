@@ -10,6 +10,8 @@
 #include <sys/epoll.h>
 #include <assert.h>
 #include <pthread.h>
+#include <time.h>
+#include <signal.h>
 
 #include "mqtt3_protocal.h"
 #include "mqtt_packet.h"
@@ -17,6 +19,42 @@
 #include "net.h"
 #include "mqtt_handler.h"
 #include "server.h"
+#include "hiredis.h"
+
+static struct client_data clients[1024];
+static struct util_timer_list *timer_list;
+static int pipefd[2];
+static redisContext *redis_context;
+static redisReply *reply;
+
+redisContext *getRedisContext(void *)
+{
+    return redis_context;
+}
+
+void sig_handler(int sig)
+{
+    int save_errno = errno;
+    int msg = sig;
+    send(pipefd[1], (char *)&msg, 1, 0);
+    errno = save_errno;
+}
+
+void addsig(int sig)
+{
+    struct sigaction sa;
+    memset(&sa, '\0', sizeof(sa));
+    sa.sa_handler = sig_handler;
+    sa.sa_flags |= SA_RESTART;
+    sigfillset(&sa.sa_mask);
+    assert(sigaction(sig, &sa, NULL)!= -1);
+}
+
+void timer_handler()
+{
+    timer_tick(timer_list);
+    alarm(TIMESLOT);
+}
 
 void* conn_handler(void *arg)
 {
@@ -62,9 +100,47 @@ void et(struct server_env *env, int number, int listenfd)
             struct sockaddr_in client_address;
             socklen_t addr_len = sizeof(client_address);
             int connfd = accept(listenfd, (struct sockaddr*) &client_address, &addr_len);
+            clients[connfd].address = client_address;
+            clients[connfd].sockfd = connfd;
             addfd(env, connfd);
-        }
-        else if (env->events[i].events & EPOLLIN)
+
+            struct util_timer *timer;
+            timer = malloc(sizeof(struct util_timer));
+            // func shut_dead_conn is defined in 
+            timer->cb_func = shut_dead_conn;
+            timer->user_data = &clients[connfd];
+            time_t cur = time(NULL);
+            // TIMESLOT is defined as 1s in server.h 
+            timer->expre = cur + 24 * TIMESLOT;
+            clients[connfd].timer = timer;
+            add_timer(timer_list, timer);
+        }else if(sockfd == pipefd[0] && (events[i].events & EPOLLIN))
+        {
+            int sig;
+            char signals[1024];
+            ret = recv(pipefd[0], signals, sizeof(signals), 0);
+            if(ret == -1)
+            {
+                continue;
+            }else if(ret == 0)
+            {
+                continue;    
+            }else
+            {
+                int i;
+                for(i = 0; i < ret; i++)
+                {
+                    switch(signals[i])
+                    {
+                    case SIGALRM:
+                        timer_handler();
+                        break;
+                    default:
+                        break;                        
+                    }
+                }
+            }
+        }else if (env->events[i].events & EPOLLIN)
         {
             pthread_t thread;
             struct fds fds_arg;
@@ -107,6 +183,35 @@ int main(int argc, char **argv)
     address.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &address.sin_addr);
     address.sin_port = htons(port);
+
+    const char *redis_host = "127.0.0.1";
+    int redis_port = 6379;
+
+    struct timeval redis_timeout = {1, 500000};
+    redis_context = redisConnectWithTimeout(redis_host, redis_port, redis_timeout);
+    if(redis_context == NULL || redis_context->err)
+    {
+        if(redis_context)
+        {
+            printf("Connection error: %s\n", redis_context->errstr);
+            redisFree(redis_context);
+        }else{
+            printf("Connection error: can't allocate redis context\n");
+        }
+        exit(1);
+    }
+
+    //initiate the timer list
+    if(timer_init(list) != MQTT_ERR_SUCCESS)
+    {
+        printf("Timer list init failure\n");
+        exit(1);
+    }
+    
+    addsig(SIGALRM);
+    addsig(SIGTERM);
+
+    alarm(TIMESLOT);
 
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(listenfd >= 0);

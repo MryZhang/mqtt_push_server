@@ -29,7 +29,7 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
     packet->packet_len = packet->remain_length + 1 + packet->remain_count;
     packet->payload = (uint8_t *)malloc(sizeof(uint8_t)*packet->packet_len);
     if(!packet->payload) return MQTT_ERR_NOMEM;
-    packet->payload[0] = packet->command;
+    packet->payload[0] = mqtt_fix_header(packet);
     for(i = 0; i < count; i++)
     {
         packet->payload[i+1] = remain_bytes[i];
@@ -37,7 +37,12 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
     packet->pos = 1 + packet->remain_count;
     return MQTT_ERR_SUCCESS;
 }
-
+uint8_t mqtt_fix_header(struct mqtt_packet *packet)
+{
+    uint8_t byte = packet->command & 0xf0 + packet->dupflag & 0x01 << 3 + packet->qosflag & 0x03 << 1 + packet->retainflag & 0x01;
+    
+    return byte;
+}
 /* calculate the remain_length */
 int mqtt_remain_length(struct mqtt_packet *packet)
 {
@@ -82,7 +87,7 @@ int mqtt_payload_byte(struct mqtt_packet *packet, uint8_t *byte)
 {
     if(packet->pos < packet->remain_length)
     {
-        byte = packet->payload[packet->pos];
+        *byte = packet->payload[packet->pos];
         packet->pos++;
         return MQTT_ERR_SUCCESS;
     }else{
@@ -105,7 +110,7 @@ int mqtt_payload_bytes(struct mqtt_packet *packet, uint8_t *bytes, uint16_t len)
         return MQTT_ERR_SUCCESS;
     }
 }
-int mqtt_str(struct mqtt_packet *packet, void *pstr)
+int mqtt_str(struct mqtt_packet *packet, uint8_t **pstr)
 {
     int ret;
     uint16_t str_len = 0;
@@ -120,8 +125,9 @@ int mqtt_str(struct mqtt_packet *packet, void *pstr)
         return ret;
     }
     str_len = len_msb*16 + len_lsb;
-    pstr = malloc(sizeof(uint8_t) * str_len);
-    if((ret = mqtt_payload_bytes(packet, pstr, str_len)) != MQTT_ERR_SUCCESS)
+    *pstr = malloc(sizeof(uint8_t) * (str_len + 1));
+    (*pstr)[str_len] = '\0';
+    if((ret = mqtt_payload_bytes(packet, *pstr, str_len)) != MQTT_ERR_SUCCESS)
     {
         return ret;
     }
@@ -130,11 +136,11 @@ int mqtt_read_protocol_name(struct mqtt_packet *packet)
 {
     uint8_t *chptr;
     int ret;
-    if((ret = mqtt_str(packet, chptr) ) != MQTT_ERR_SUCCESS)
+    if((ret = mqtt_str(packet, &chptr) ) != MQTT_ERR_SUCCESS)
     {
         return ret;
     }
-    if(strncpm(chptr, "MQTT", 4) == 0)
+    if(strncmp(chptr, "MQTT", 4) == 0)
     {
         printf("please use v3.1\n");
         return MQTT_ERR_PROTOCOL;
