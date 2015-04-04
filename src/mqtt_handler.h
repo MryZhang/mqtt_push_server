@@ -6,5 +6,5 @@
 
 int mqtt_handler_connect(struct mqtt_packet *packet);
 int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code);
-void shut_dead_conn(struct client_data *client);
+void shut_dead_conn(int sockfd);
 #endif

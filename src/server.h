@@ -1,6 +1,8 @@
 #ifndef _SERVER_H_
 #define _SERVER_H_
+
 #include "hiredis.h"
+#include "util.h"
 
 /* Error Values */
 enum mqtt_msg_t {
@@ -14,7 +16,8 @@ enum mqtt_msg_t {
     MQTT_ERR_NULL = 7,
 };
 /* Get the context of the redis database */
-redisContext *getRedisContext(void *);
+redisContext *getRedisContext();
+int get_server_env(struct server_env *s_env);
 
 #define TIMESLOT 1
 

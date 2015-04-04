@@ -10,6 +10,7 @@ struct util_timer
 {
     time_t expire;
     void (*cb_func)(void *client);
+    struct client_data *user_data;
     struct util_timer *prev;
     struct util_timer *next;
 };

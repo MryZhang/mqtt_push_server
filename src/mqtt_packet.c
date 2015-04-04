@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
+#include <ctype.h>
+
 #include "server.h"
 #include "mqtt_packet.h"
 #include "net.h"
@@ -88,6 +90,12 @@ int mqtt_payload_byte(struct mqtt_packet *packet, uint8_t *byte)
     if(packet->pos < packet->remain_length)
     {
         *byte = packet->payload[packet->pos];
+        if(isalpha(*byte) || isdigit(*byte))
+        {
+            printf("func payload_byte: had read %c\n", *byte);
+        }else{
+            printf("func payload_byte: had read 0x%x\n", *byte);
+        }
         packet->pos++;
         return MQTT_ERR_SUCCESS;
     }else{
@@ -125,6 +133,9 @@ int mqtt_str(struct mqtt_packet *packet, uint8_t **pstr)
         return ret;
     }
     str_len = len_msb*16 + len_lsb;
+    printf("func mqtt_str: len_msb: %d\n", len_msb);
+    printf("func mqtt_str: len_lsb: %d\n", len_lsb); 
+    printf("func mqtt_str: str_len:%d\n", str_len);
     *pstr = malloc(sizeof(uint8_t) * (str_len + 1));
     (*pstr)[str_len] = '\0';
     if((ret = mqtt_payload_bytes(packet, *pstr, str_len)) != MQTT_ERR_SUCCESS)
@@ -202,5 +213,18 @@ int mqtt_read_livetimer(struct mqtt_packet *packet)
     timer = timer_msb * 16 + timer_lsb;
     packet->alive_timer = timer;
 
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_send_payload(struct mqtt_packet *packet)
+{
+    struct server_env *env;
+    if(!get_server_env(env))
+    {
+       printf("func mqtt_send_payload: get server_env failure\n");
+       return MQTT_ERR_PROTOCOL;
+    }
+
+    set_fd_out(env, packet->fd->sockfd, (void *)packet->payload);
     return MQTT_ERR_SUCCESS;
 }

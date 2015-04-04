@@ -3,8 +3,11 @@
 #include <assert.h>
 
 #include "net.h"
+#include "util.h"
+#include "server.h"
 
 ssize_t mqtt_net_read(int sockfd, void* buf, size_t count)
 {
     return recv(sockfd, buf, count, 0);
 }
+

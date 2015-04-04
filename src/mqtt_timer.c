@@ -1,15 +1,21 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "server.h"
+#include "mqtt_timer.h"
 
 int timer_init(struct util_timer_list *list)
 {
     list = malloc(sizeof(struct util_timer_list));
     if(!list)
     {
-        return MQTT_ERR_NO_MEM;
+        return MQTT_ERR_NOMEM;
     }
 
     list->head = NULL;
     list->tail = NULL;
+    return MQTT_ERR_SUCCESS;
 }
 
 int add_timer(struct util_timer_list *list, struct util_timer *timer)
@@ -74,7 +80,7 @@ int adjust_timer(struct util_timer_list *list, struct util_timer *timer)
         timer->prev->next = timer->next;
         tmp = timer->next; 
         timer->prev = timer->next = NULL;
-        return add_timer_after(list, timer, tmp)
+        return add_timer_after(list, timer, tmp);
     }
 }
 
@@ -82,7 +88,7 @@ void timer_tick(struct util_timer_list *list)
 {
     if(!list || !list->head) return;
 
-    timer_t cur = time(NULL);
+    time_t cur = time(NULL);
     struct util_timer *tmp = list->head;
     while(tmp)
     {
@@ -94,7 +100,7 @@ void timer_tick(struct util_timer_list *list)
         list->head = tmp->next;
         if(list->head)
         {
-            head->prev = NULL;
+            list->head->prev = NULL;
         }
         free(tmp);
         tmp = list->head;

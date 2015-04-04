@@ -5,6 +5,8 @@
 #include "mqtt_packet.h"
 #include "server.h"
 #include "hiredis.h"
+#include "client_ds.h"
+#include "net.h"
 
 /* handler the CONNECT message */
 int mqtt_handler_connect(struct mqtt_packet *packet)
@@ -46,7 +48,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
     {
         return ret;
     }
-    
+    printf("func conn_handler: begin to read id\n");
     if((ret = mqtt_str(packet, &packet->identifier)) != MQTT_ERR_SUCCESS)
     {
         return ret;
@@ -59,6 +61,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
         return MQTT_ERR_ID_TOO_LONG;
     }
 
+    printf("packet->identifier : %s\n", packet->identifier);
     if(!had_client_id(packet->identifier))
     {
         if((ret = add_client_id(packet->identifier)) != MQTT_ERR_SUCCESS)
@@ -104,6 +107,11 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
     int ret;     
     struct mqtt_packet *ack_packet;
     ack_packet = malloc(sizeof(struct mqtt_packet));
+    if(!ack_packet)
+    {
+        printf("func mqtt_conn_ack: malloc failure\n");
+        return MQTT_ERR_NOMEM;
+    }
     ack_packet->fd = packet->fd;
     ack_packet->remain_length = 2;
     ack_packet->command = 0x20;
@@ -115,5 +123,16 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
     ack_packet->payload[packet->pos++] = 0x00;
     ack_packet->payload[packet->pos++] = (uint8_t)ret_code;
     
+    if((ret = mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
+    {
+        return  ret;
+    }
     return MQTT_ERR_SUCCESS;
+}
+
+void shut_dead_conn(int sockfd)
+{
+    close(sockfd);
+    
+    printf("shut_dead_conn\n");    
 }

@@ -21,19 +21,31 @@
 #include "server.h"
 #include "hiredis.h"
 
-static struct client_data clients[1024];
 static struct util_timer_list *timer_list;
 static int pipefd[2];
 static redisContext *redis_context;
 static redisReply *reply;
+static struct server_env *env;
 
-redisContext *getRedisContext(void *)
+int get_server_env(struct server_env *s_env)
+{
+    if(!env)
+    {
+        return 0;
+    }else{
+        s_env = env;
+    }
+    return 1;
+}
+
+redisContext *getRedisContext()
 {
     return redis_context;
 }
 
 void sig_handler(int sig)
 {
+    printf("sig_handler run once!\n");
     int save_errno = errno;
     int msg = sig;
     send(pipefd[1], (char *)&msg, 1, 0);
@@ -78,7 +90,8 @@ void* conn_handler(void *arg)
                 case CONNECT:
                     if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("Some Err happend!\n");
+                        printf("mqtt_handler_connect failure: %d\n", ret);
+                        shut_dead_conn(packet->fd->sockfd);
                     }
                     break;
                 
@@ -91,7 +104,7 @@ void* conn_handler(void *arg)
 
 void et(struct server_env *env, int number, int listenfd)
 {
-    int i;
+    int i, ret;
     for(i = 0; i < number; i++)
     {
         int sockfd = env->events[i].data.fd;
@@ -100,21 +113,21 @@ void et(struct server_env *env, int number, int listenfd)
             struct sockaddr_in client_address;
             socklen_t addr_len = sizeof(client_address);
             int connfd = accept(listenfd, (struct sockaddr*) &client_address, &addr_len);
-            clients[connfd].address = client_address;
-            clients[connfd].sockfd = connfd;
+            env->clients[connfd].address = client_address;
+            env->clients[connfd].sockfd = connfd;
             addfd(env, connfd);
 
             struct util_timer *timer;
             timer = malloc(sizeof(struct util_timer));
             // func shut_dead_conn is defined in 
             timer->cb_func = shut_dead_conn;
-            timer->user_data = &clients[connfd];
+            timer->user_data = &(env->clients[connfd]);
             time_t cur = time(NULL);
             // TIMESLOT is defined as 1s in server.h 
-            timer->expre = cur + 24 * TIMESLOT;
-            clients[connfd].timer = timer;
+            timer->expire = cur + 24 * TIMESLOT;
+            env->clients[connfd].timer = timer;
             add_timer(timer_list, timer);
-        }else if(sockfd == pipefd[0] && (events[i].events & EPOLLIN))
+        }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
             int sig;
             char signals[1024];
@@ -202,7 +215,7 @@ int main(int argc, char **argv)
     }
 
     //initiate the timer list
-    if(timer_init(list) != MQTT_ERR_SUCCESS)
+    if(timer_init(timer_list) != MQTT_ERR_SUCCESS)
     {
         printf("Timer list init failure\n");
         exit(1);
@@ -211,7 +224,6 @@ int main(int argc, char **argv)
     addsig(SIGALRM);
     addsig(SIGTERM);
 
-    alarm(TIMESLOT);
 
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(listenfd >= 0);
@@ -222,20 +234,28 @@ int main(int argc, char **argv)
     ret = listen(listenfd, 5);
     assert(ret != -1);
     
-    struct server_env env;
-    env.epollfd = epoll_create(5);
-    assert(env.epollfd != -1);
-    addfd(&env, listenfd);
+    env = malloc(sizeof(struct server_env));
+    if(!env)
+    {
+        perror("malloc");
+        exit(1);
+    }
+    env->epollfd = epoll_create(5);
+    assert(env->epollfd != -1);
+    addfd(env, listenfd);
+    setnonblocking(pipefd[1]);
+    addfd(env, pipefd[0]);
 
+    alarm(TIMESLOT);
     while(1)
     {
-        ret = epoll_wait(env.epollfd, env.events, MAX_EVENT_NUM, -1);
+        ret = epoll_wait(env->epollfd, env->events, MAX_EVENT_NUM, 100);
         if(ret < 0)
         {
-            printf("epoll failure\n");
-            break;
+            perror("epoll_wait:");
+            continue;
         }
-        et(&env, ret, listenfd);
+        et(env, ret, listenfd);
     }
 
     close(listenfd);

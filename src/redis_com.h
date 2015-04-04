@@ -1,8 +1,9 @@
 #ifndef _REDIS_COM_H_
 #define _REDIS_COM_H_
+#include <stdint.h>
 #include "hiredis.h"
 
-int getCtx(redisContext **ctx);
-int add_client_id(char *client_id);
+int getCtx();
+int add_client_id(uint8_t *client_id);
 
 #endif

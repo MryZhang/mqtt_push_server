@@ -49,5 +49,5 @@ int mqtt_read_connect_flags(struct mqtt_packet *packet);
 int mqtt_read_livetimer(struct mqtt_packet *packet);
 
 uint8_t mqtt_fix_header(struct mqtt_packet *packet);
-
+int mqtt_send_payload(struct mqtt_packet *packet);
 #endif

@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <stdio.h>
 
+#include "mqtt_packet.h"
+
 struct mqtt_epoll_data
 {
     int fd;
@@ -15,5 +17,4 @@ struct fds
     int sockfd;
 };
 ssize_t mqtt_net_read(int sockfd, void *buf, size_t count);
-
 #endif
