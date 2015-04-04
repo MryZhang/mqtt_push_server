@@ -84,6 +84,27 @@ int adjust_timer(struct util_timer_list *list, struct util_timer *timer)
     }
 }
 
+int remove_timer(struct util_timer_list *list, struct util_timer *timer)
+{
+    if(!list || !list->head || timer) return MQTT_ERR_NULL;
+    if(timer == list->head)
+    {
+        list->head = timer->next;
+        list->head->prev = NULL;
+    }
+    else if(timer == list->tail)
+    {
+        list->tail = timer->prev;
+        list->tail->next = NULL;
+    }
+    else
+    {
+        timer->next->prev = timer->prev;
+        timer->prev->next = timer->next;
+    }
+    return MQTT_ERR_SUCCESS;
+}
+
 void timer_tick(struct util_timer_list *list)
 {
     if(!list || !list->head) return;
@@ -96,7 +117,9 @@ void timer_tick(struct util_timer_list *list)
         {
             break;
         }
-        tmp->cb_func(tmp->user_data);
+        struct client_data *data;
+        get_client_data(tmp, &data);
+        data->dead_clean(data);
         list->head = tmp->next;
         if(list->head)
         {
@@ -105,4 +128,9 @@ void timer_tick(struct util_timer_list *list)
         free(tmp);
         tmp = list->head;
     }
+}
+
+void get_client_data(struct util_timer *timer, struct client_data **data)
+{
+    *data = (struct client_data *) (timer - sizeof(int) - sizeof(struct sockaddr_in)); 
 }

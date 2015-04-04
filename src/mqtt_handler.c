@@ -132,7 +132,10 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
 
 void shut_dead_conn(int sockfd)
 {
-    close(sockfd);
-    
+    struct server_env *env = get_server_env();
+    assert(env != NULL);
+
+    remove_timer(env->timer_list, env->clients[sockfd]->timer);
+    removefd(env, sockfd);
     printf("shut_dead_conn\n");    
 }

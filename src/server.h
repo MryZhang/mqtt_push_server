@@ -17,7 +17,7 @@ enum mqtt_msg_t {
 };
 /* Get the context of the redis database */
 redisContext *getRedisContext();
-int get_server_env(struct server_env *s_env);
+struct server_env *get_server_env();
 
 #define TIMESLOT 1
 

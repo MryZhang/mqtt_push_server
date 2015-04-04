@@ -9,8 +9,6 @@
 struct util_timer
 {
     time_t expire;
-    void (*cb_func)(void *client);
-    struct client_data *user_data;
     struct util_timer *prev;
     struct util_timer *next;
 };
@@ -25,5 +23,7 @@ int timer_init(struct util_timer_list *list);
 int add_timer(struct util_timer_list *list, struct util_timer *timer);
 int add_timer_after(struct util_timer_list *list, struct util_timer *timer, struct util_timer *tar);
 int adjust_timer(struct util_timer_list *list, struct util_timer *timer);
+int remove_timer(struct util_timer_list *list, struct util_timer *timer);
 void timer_tick(struct util_timer_list *list);
+void get_client_data(struct util_timer *timer, struct client_data **data);
 #endif

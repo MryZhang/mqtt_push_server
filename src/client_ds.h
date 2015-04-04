@@ -8,7 +8,8 @@ struct client_data
 {
     struct sockaddr_in address;
     int sockfd;
-    struct util_timer *timer;
+    struct util_timer *timer;    
+    void (*dead_clean)(struct client_data *client);  // the callback function used to shutdown the connection which is unactivitive for a long time
 };
 
 

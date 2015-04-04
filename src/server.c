@@ -21,21 +21,14 @@
 #include "server.h"
 #include "hiredis.h"
 
-static struct util_timer_list *timer_list;
 static int pipefd[2];
 static redisContext *redis_context;
 static redisReply *reply;
 static struct server_env *env;
 
-int get_server_env(struct server_env *s_env)
+struct server_env *get_server_env()
 {
-    if(!env)
-    {
-        return 0;
-    }else{
-        s_env = env;
-    }
-    return 1;
+    return env;
 }
 
 redisContext *getRedisContext()
@@ -64,7 +57,8 @@ void addsig(int sig)
 
 void timer_handler()
 {
-    timer_tick(timer_list);
+    assert(env != NULL);
+    timer_tick(env->timer_list);
     alarm(TIMESLOT);
 }
 
@@ -90,7 +84,7 @@ void* conn_handler(void *arg)
                 case CONNECT:
                     if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("mqtt_handler_connect failure: %d\n", ret);
+                        printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
                     break;
@@ -119,14 +113,13 @@ void et(struct server_env *env, int number, int listenfd)
 
             struct util_timer *timer;
             timer = malloc(sizeof(struct util_timer));
-            // func shut_dead_conn is defined in 
-            timer->cb_func = shut_dead_conn;
+            assert(timer != NULL);
             timer->user_data = &(env->clients[connfd]);
             time_t cur = time(NULL);
-            // TIMESLOT is defined as 1s in server.h 
             timer->expire = cur + 24 * TIMESLOT;
             env->clients[connfd].timer = timer;
-            add_timer(timer_list, timer);
+            env->clients[connfd].dead_clean = shut_dead_conn;
+            add_timer(env->timer_list, timer);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
             int sig;
@@ -147,6 +140,10 @@ void et(struct server_env *env, int number, int listenfd)
                     {
                     case SIGALRM:
                         timer_handler();
+                        break;
+                    case SIGINT:
+                        printf("Goodbye!\n");
+                        exit(1);
                         break;
                     default:
                         break;                        
@@ -169,7 +166,6 @@ void et(struct server_env *env, int number, int listenfd)
             int sended_len = 0; 
             while(to_process > 0)
             {
-                //sended_len = send(fd_data->fd, (const void *)(packet->payload[packet->packet_len - to_process]), to_process, 0);
                 sended_len = send(fd_data->fd, &(packet->payload[packet->packet_len - to_process]), to_process, 0);
                 if(sended_len < 0)
                 {
@@ -214,16 +210,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    //initiate the timer list
-    if(timer_init(timer_list) != MQTT_ERR_SUCCESS)
-    {
-        printf("Timer list init failure\n");
-        exit(1);
-    }
+    
     
     addsig(SIGALRM);
     addsig(SIGTERM);
-
+    addsig(SIGINT);
 
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(listenfd >= 0);
@@ -240,6 +231,13 @@ int main(int argc, char **argv)
         perror("malloc");
         exit(1);
     }
+    //initiate the timer list
+    if(timer_init(env->timer_list) != MQTT_ERR_SUCCESS)
+    {
+        printf("Timer list init failure\n");
+        exit(1);
+    }
+
     env->epollfd = epoll_create(5);
     assert(env->epollfd != -1);
     addfd(env, listenfd);

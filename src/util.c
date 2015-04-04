@@ -51,3 +51,9 @@ void set_fd_in(struct server_env *env, int fd)
     epoll_ctl(env->epollfd, EPOLL_CTL_MOD, fd, &event);
 }
 
+void removefd(struct server_env *env, int fd)
+{
+    epoll_ctl(env->epollfd, EPOLL_CTL_DEL, fd, 0);
+    close(fd);
+    printf("close fd %d\n", fd);
+}
