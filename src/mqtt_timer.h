@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include "client_ds.h"
-#include "server.h"
 
 struct util_timer
 {

@@ -11,7 +11,7 @@ all : $(object)
 net.o : net.h net.c
 	$(gcc) $(CFLAG) ./src/net.c $(INCLUDEPATH)
 util.o : util.h util.c
-	$(gcc) $(CFLAG) ./src/util.c
+	$(gcc) $(CFLAG) ./src/util.c $(INCLUDEPATH)
 mqtt_packet.o : mqtt_packet.c mqtt_packet.h net.h server.h
 	$(gcc) $(CFLAG) ./src/mqtt_packet.c $(INCLUDEPATH)
 mqtt_handler.o : mqtt_handler.c mqtt_handler.h mqtt_packet.h server.h

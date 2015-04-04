@@ -14,11 +14,15 @@ int setnonblocking(int fd)
     return old_option;
 }
 
-void addfd(struct server_env *env, int fd)
+void addfd(struct server_env *env, int fd, int oneshot)
 {
     struct epoll_event event;
     event.data.fd = fd;
-    event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+    event.events = EPOLLIN | EPOLLET;
+    if(oneshot)
+    {
+        event.events |= EPOLLONESHOT;
+    }
     epoll_ctl(env->epollfd, EPOLL_CTL_ADD, fd, &event);
     setnonblocking(fd);
 }

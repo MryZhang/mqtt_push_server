@@ -64,3 +64,15 @@ int had_client_id(uint8_t *client_id)
     exit(1);
     return 1;
 }
+
+void rm_client_id(uint8_t *client_id)
+{
+    if(redisCtx || getCtx())
+    {
+        reply = redisCommand(redisCtx, "SADD %s %s", clientsetname, client_id);
+        if(!reply)
+        {
+            printf("func rm_client_id : %s\n", redisCtx->err);
+        }
+    }
+}

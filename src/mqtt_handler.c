@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "mqtt_handler.h"
 #include "mqtt_packet.h"
@@ -134,8 +135,10 @@ void shut_dead_conn(int sockfd)
 {
     struct server_env *env = get_server_env();
     assert(env != NULL);
-
-    remove_timer(env->timer_list, env->clients[sockfd]->timer);
+    
+    struct client_data *d;
+    d = &env->clients[sockfd];
+    remove_timer(env->timer_list, d->timer);
     removefd(env, sockfd);
     printf("shut_dead_conn\n");    
 }

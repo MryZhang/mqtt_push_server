@@ -109,6 +109,7 @@ void timer_tick(struct util_timer_list *list)
 {
     if(!list || !list->head) return;
 
+    printf("Start to tick:\n");
     time_t cur = time(NULL);
     struct util_timer *tmp = list->head;
     while(tmp)
@@ -119,7 +120,7 @@ void timer_tick(struct util_timer_list *list)
         }
         struct client_data *data;
         get_client_data(tmp, &data);
-        data->dead_clean(data);
+        data->dead_clean(data->sockfd);
         list->head = tmp->next;
         if(list->head)
         {

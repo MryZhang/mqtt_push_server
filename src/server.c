@@ -38,7 +38,6 @@ redisContext *getRedisContext()
 
 void sig_handler(int sig)
 {
-    printf("sig_handler run once!\n");
     int save_errno = errno;
     int msg = sig;
     send(pipefd[1], (char *)&msg, 1, 0);
@@ -66,34 +65,38 @@ void* conn_handler(void *arg)
 {
     int sockfd = ((struct fds*) arg)->sockfd;
     int epollfd = ((struct fds *) arg)->epollfd;
+    int readed = 0;
     printf("start new thread to receive data on fd: %d\n", sockfd);
     struct mqtt_packet *packet;
     packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
-    while(1)
+    
+    uint8_t byte;
+    int ret;
+    int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
+    if( recv_len == 1)
     {
-        uint8_t byte;
-        int ret;
-        int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
-        if( recv_len == 1)
-        {
-            packet->command = byte;
-            packet->fd = (struct fds*)arg;
+        packet->command = byte;
+        packet->fd = (struct fds*)arg;
 
-            switch(packet->command&0xFE)
-            {
-                case CONNECT:
-                    if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
-                    {
-                        printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
-                        shut_dead_conn(packet->fd->sockfd);
-                    }
-                    break;
-                
-                default:
-                    break;
-            }
-        }
+        switch(packet->command&0xFE)
+        {
+            case CONNECT:
+                if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
+                {
+                    printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
+                    shut_dead_conn(packet->fd->sockfd);
+                }
+                break;        
+            default:
+                break;
+        }    
+    }else if(recv_len == 0)
+    {
+        shut_dead_conn(sockfd);
     }
+    struct server_env *env = get_server_env();
+    assert(env != NULL);
+    reset_oneshot(env, sockfd);
 }
 
 void et(struct server_env *env, int number, int listenfd)
@@ -104,17 +107,17 @@ void et(struct server_env *env, int number, int listenfd)
         int sockfd = env->events[i].data.fd;
         if( sockfd == listenfd )
         {
+            printf("New Client=====================\n");
             struct sockaddr_in client_address;
             socklen_t addr_len = sizeof(client_address);
             int connfd = accept(listenfd, (struct sockaddr*) &client_address, &addr_len);
             env->clients[connfd].address = client_address;
             env->clients[connfd].sockfd = connfd;
-            addfd(env, connfd);
+            addfd(env, connfd, 1);
 
             struct util_timer *timer;
             timer = malloc(sizeof(struct util_timer));
             assert(timer != NULL);
-            timer->user_data = &(env->clients[connfd]);
             time_t cur = time(NULL);
             timer->expire = cur + 24 * TIMESLOT;
             env->clients[connfd].timer = timer;
@@ -184,7 +187,7 @@ void et(struct server_env *env, int number, int listenfd)
 int main(int argc, char **argv)
 {
     const char *ip = "127.0.0.1";
-    const int port = 3308;
+    const int port = 3310;
 
     int ret = 0;
     struct sockaddr_in address;
@@ -214,7 +217,7 @@ int main(int argc, char **argv)
     
     addsig(SIGALRM);
     addsig(SIGTERM);
-    addsig(SIGINT);
+    //addsig(SIGINT);
 
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(listenfd >= 0);
@@ -237,12 +240,11 @@ int main(int argc, char **argv)
         printf("Timer list init failure\n");
         exit(1);
     }
-
     env->epollfd = epoll_create(5);
     assert(env->epollfd != -1);
-    addfd(env, listenfd);
+    addfd(env, listenfd, 0);
     setnonblocking(pipefd[1]);
-    addfd(env, pipefd[0]);
+    addfd(env, pipefd[0], 0);
 
     alarm(TIMESLOT);
     while(1)

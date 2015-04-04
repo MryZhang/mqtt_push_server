@@ -11,11 +11,11 @@ struct server_env
 {
     int epollfd;
     struct epoll_event events[MAX_EVENT_NUM];
-    struct client_data clients[1024];
+    struct client_data  clients[1024];
     struct util_timer_list *timer_list;
 };
 int setnonblocking(int fd);
-void addfd(struct server_env *env, int fd);
+void addfd(struct server_env *env, int fd, int oneshot);
 void reset_oneshot(struct server_env *env, int fd);
 void set_fd_out(struct server_env * env, int fd, void *str);
 void set_fd_in(struct server_env *env, int fd);
