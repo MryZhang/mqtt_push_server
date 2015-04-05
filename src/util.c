@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "util.h"
 #include "net.h"
@@ -35,13 +36,16 @@ void reset_oneshot(struct server_env *env, int fd)
     epoll_ctl(env->epollfd, EPOLL_CTL_MOD, fd, &event);
 }
 
-void set_fd_out(struct server_env *env, int fd, void *str)
+void set_fd_out(struct server_env *env, int fd, void *str, int len)
 {
+    printf("Begin to set fd out===========\n");
     struct epoll_event event;
     struct mqtt_epoll_data *fd_str;
     fd_str = (struct mqtt_epoll_data *) malloc(sizeof(struct mqtt_epoll_data));
+    assert(fd_str);
     fd_str->fd = fd;
     fd_str->str = str;
+    fd_str->len = len;
     event.data.ptr = fd_str;
     event.events = EPOLLOUT | EPOLLET;
     epoll_ctl(env->epollfd, EPOLL_CTL_MOD, fd, &event);

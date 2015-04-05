@@ -10,6 +10,7 @@ struct mqtt_epoll_data
 {
     int fd;
     void *str;
+    int len;
 };
 struct fds
 {

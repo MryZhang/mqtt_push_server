@@ -17,7 +17,7 @@ struct server_env
 int setnonblocking(int fd);
 void addfd(struct server_env *env, int fd, int oneshot);
 void reset_oneshot(struct server_env *env, int fd);
-void set_fd_out(struct server_env * env, int fd, void *str);
+void set_fd_out(struct server_env * env, int fd, void *str, int len);
 void set_fd_in(struct server_env *env, int fd);
 void removefd(struct server_env *env, int fd);
 

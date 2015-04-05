@@ -100,11 +100,12 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
         }
     }
 
-    return MQTT_ERR_SUCCESS;  
+    return mqtt_conn_ack(packet, 0);  
 }
 
 int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
 {
+    printf("Begin to send conn_ack============\n");
     int ret;     
     struct mqtt_packet *ack_packet;
     ack_packet = malloc(sizeof(struct mqtt_packet));
@@ -115,15 +116,17 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
     }
     ack_packet->fd = packet->fd;
     ack_packet->remain_length = 2;
+    printf("remain length in conn ack: %d\n", ack_packet->remain_length);
     ack_packet->command = 0x20;
     ack_packet->dupflag = 0x00;
     ack_packet->qosflag = 0x00;
     ack_packet->retainflag = 0x00;
-    ret = mqtt_packet_alloc(packet);
+    ret = mqtt_packet_alloc(ack_packet);
     if(ret != MQTT_ERR_SUCCESS) return ret;
     ack_packet->payload[packet->pos++] = 0x00;
     ack_packet->payload[packet->pos++] = (uint8_t)ret_code;
     
+    mqtt_console_payload(ack_packet); 
     if((ret = mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
     {
         return  ret;

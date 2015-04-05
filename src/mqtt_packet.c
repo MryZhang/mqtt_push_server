@@ -15,6 +15,7 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
     uint32_t remain_length;
     uint8_t remain_bytes[5], byte, count = 0, i;
 
+    printf("remain length %d at begin of alloc.\n", packet->remain_length);
     remain_length = packet->remain_length;
     while(remain_length > 0 && count < 5)
     {
@@ -28,6 +29,9 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
     }
     if(count == 5) return MQTT_ERR_PAYLOAD_SIZE;
     packet->remain_count = count;
+    printf("func packet alloc:============\n");
+    printf("count: %d\n", count);
+    printf("remain length : %d\n", packet->remain_length);
     packet->packet_len = packet->remain_length + 1 + packet->remain_count;
     packet->payload = (uint8_t *)malloc(sizeof(uint8_t)*packet->packet_len);
     if(!packet->payload) return MQTT_ERR_NOMEM;
@@ -41,8 +45,8 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
 }
 uint8_t mqtt_fix_header(struct mqtt_packet *packet)
 {
-    uint8_t byte = packet->command & 0xf0 + packet->dupflag & 0x01 << 3 + packet->qosflag & 0x03 << 1 + packet->retainflag & 0x01;
-    
+    uint8_t byte = (packet->command & 0xf0) |  (packet->dupflag & 0x01 << 3) | (packet->qosflag & 0x03 << 1) | (packet->retainflag & 0x01);
+   printf("func: fix_head byte: 0x%x\n", byte); 
     return byte;
 }
 /* calculate the remain_length */
@@ -218,13 +222,22 @@ int mqtt_read_livetimer(struct mqtt_packet *packet)
 
 int mqtt_send_payload(struct mqtt_packet *packet)
 {
-    struct server_env *env;
-    if(!get_server_env(env))
-    {
-       printf("func mqtt_send_payload: get server_env failure\n");
-       return MQTT_ERR_PROTOCOL;
-    }
-
-    set_fd_out(env, packet->fd->sockfd, (void *)packet->payload);
+    printf("Begin to send payload==========\n");
+    struct server_env *env = get_server_env();
+    assert(env);
+    set_fd_out(env, packet->fd->sockfd, (void *)packet->payload, packet->packet_len);
+    printf("End of send payload============\n");
     return MQTT_ERR_SUCCESS;
+}
+
+void mqtt_console_payload(struct mqtt_packet *packet)
+{
+    printf("Print payload=============\n");
+    printf("payload len :%d \n", packet->packet_len);
+    int i;
+    for(i = 0; i < packet->packet_len; i++)
+    {
+        printf("0x%x ", packet->payload[i]);
+    }
+    printf("end of print==============\n");
 }

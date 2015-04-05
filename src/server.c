@@ -125,6 +125,7 @@ void et(struct server_env *env, int number, int listenfd)
             add_timer(env->timer_list, timer);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
+            printf("ALARM========================\n");
             int sig;
             char signals[1024];
             ret = recv(pipefd[0], signals, sizeof(signals), 0);
@@ -155,6 +156,7 @@ void et(struct server_env *env, int number, int listenfd)
             }
         }else if (env->events[i].events & EPOLLIN)
         {
+            printf("EPOLLIN=================\n");
             pthread_t thread;
             struct fds fds_arg;
             fds_arg.epollfd = env->epollfd;
@@ -163,23 +165,26 @@ void et(struct server_env *env, int number, int listenfd)
         }
         else if(env->events[i].events & EPOLLOUT)
         {
+            printf("EPOLLOUT===============\n");
             struct mqtt_epoll_data *fd_data = (struct mqtt_epoll_data*) env->events[i].data.ptr;
-            struct mqtt_packet *packet = (struct mqtt_packet *)fd_data->str;
-            uint32_t to_process = packet->packet_len;
+            uint32_t to_process = fd_data->len;
             int sended_len = 0; 
+            int send_ret = 0;
             while(to_process > 0)
             {
-                sended_len = send(fd_data->fd, &(packet->payload[packet->packet_len - to_process]), to_process, 0);
-                if(sended_len < 0)
+                send_ret = send(fd_data->fd, &(((uint8_t *)fd_data->str)[sended_len]), to_process, 0);
+                if(send_ret > 0)
                 {
-                    printf("Send Err\n");
-                    break;
+                    to_process = to_process - send_ret;
+                    sended_len = sended_len + send_ret;
                 }
-                to_process -= sended_len;
+                else
+                {
+                    printf("func et: send ret != 0\n");
+                    break;   
+                }
             }
             set_fd_in(env, sockfd);  
-            free(packet);
-            free(fd_data);
         }
 
     }
@@ -222,6 +227,10 @@ int main(int argc, char **argv)
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(listenfd >= 0);
     
+    int on = 1;
+    ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+    assert(ret == 0);
+
     ret = bind(listenfd, (struct sockaddr*) &address, sizeof(address));
     assert(ret != -1);
     
