@@ -25,4 +25,5 @@ int adjust_timer(struct util_timer_list *list, struct util_timer *timer);
 int remove_timer(struct util_timer_list *list, struct util_timer *timer);
 void timer_tick(struct util_timer_list *list);
 void get_client_data(struct util_timer *timer, struct client_data **data);
+int inc_timer(struct util_timer_list *list, struct util_timer *timer);
 #endif

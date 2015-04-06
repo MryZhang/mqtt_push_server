@@ -87,6 +87,11 @@ void* conn_handler(void *arg)
                     shut_dead_conn(packet->fd->sockfd);
                 }
                 break;        
+            case PUBLISH:
+                mqtt_handler_publish(packet);
+                break;  
+            case PINGREQ:
+                break; 
             default:
                 break;
         }    
@@ -115,14 +120,12 @@ void et(struct server_env *env, int number, int listenfd)
             env->clients[connfd].sockfd = connfd;
             addfd(env, connfd, 1);
 
-            struct util_timer *timer;
-            timer = malloc(sizeof(struct util_timer));
-            assert(timer != NULL);
             time_t cur = time(NULL);
-            timer->expire = cur + 24 * TIMESLOT;
-            env->clients[connfd].timer = timer;
+            env->clients[connfd].timer.expire = cur + 5*TIMESLOT;
             env->clients[connfd].dead_clean = shut_dead_conn;
-            add_timer(env->timer_list, timer);
+            printf("client address: 0x%x\n", &(env->clients[connfd]));
+            printf("timer address: 0x%x\n", &(env->clients[connfd].timer));
+            assert(add_timer(env->timer_list, &(env->clients[connfd].timer))== MQTT_ERR_SUCCESS);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
             printf("ALARM========================\n");
@@ -244,6 +247,13 @@ int main(int argc, char **argv)
         exit(1);
     }
     //initiate the timer list
+    env->timer_list = malloc(sizeof(struct util_timer_list));
+    assert(env->timer_list);
+    if( mqtt_hash_init(&(env->topic_table))!=0)
+    {
+        perror("malloc");
+        exit(1);
+    }
     if(timer_init(env->timer_list) != MQTT_ERR_SUCCESS)
     {
         printf("Timer list init failure\n");
@@ -252,6 +262,9 @@ int main(int argc, char **argv)
     env->epollfd = epoll_create(5);
     assert(env->epollfd != -1);
     addfd(env, listenfd, 0);
+
+    ret = socketpair(PF_UNIX, SOCK_STREAM, 0, pipefd);
+    assert(ret != -1);
     setnonblocking(pipefd[1]);
     addfd(env, pipefd[0], 0);
 

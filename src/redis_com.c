@@ -5,11 +5,13 @@
 #include "redis_com.h"
 #include "hiredis.h"
 #include "server.h"
+#include "mqtt_message.h"
 
 const char *clientsetname="clientIDs";
- 
-redisContext *redisCtx;
-redisReply *reply;
+const char *topic_hash = "topic"; 
+
+static redisContext *redisCtx;
+static redisReply *reply;
 
 int getCtx()
 {
@@ -76,3 +78,66 @@ void rm_client_id(uint8_t *client_id)
         }
     }
 }
+/*
+int had_topic(uint8_t *topic)
+{
+    if(!redisCtx && !getCtx())
+    {
+        printf("redisCtx is NULL\n");
+        exit(1);
+    }
+
+    reply = redisCommand(redisCtx, "HEXISTS %s %s", topic_hash, t);
+    if(!reply)
+    {
+        printf("func had_topic : %s\n", redisCtx->err);
+        exit(1);
+    }
+    if(reply->type == REDIS_REPLY_INTEGER && reply->integer == 1)
+    {
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+struct mqtt_topic* get_topic(uint8_t *t)
+{
+    if(!redisCtx && !getCtx())
+    {
+        printf("redisCtx is NULL\n");
+        exit(1);
+    }
+    reply = redisCommand(redisCtx, "HGET %s %s", topic_hash, t);
+    if(!reply || reply->type != REDIS_REPLY_STRING)
+    {
+        return NULL;
+    }
+
+    return (struct mqtt_topic*)reply->str;
+
+}
+struct mqtt_topic *add_topic(uint8_t *t_name)
+{
+    if(!redisCtx && !getCtx())
+    {
+        return MQTT_ERR_NULL;
+    }
+    struct mqtt_topic *tp;
+    tp = get_topic(t);
+    if(tp) return tp;
+    struct mqtt_topic *t = malloc(sizeof(struct mqtt_topic));  
+    if(!t)
+    {
+        printf("func add_topic : malloc failure\n");
+        exit(1);
+    }
+    mqtt_string_alloc(&(t->name), t_name); 
+    t->clients = NULL;
+    t->msg_head = NULL;
+    t->msg_buff = NULL;
+    reply = redisCommand(redisCtx, "HSET %s %s %s", topic_hash, t_name, (char *)t);
+   
+    return t;
+}
+*/

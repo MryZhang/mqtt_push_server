@@ -8,6 +8,7 @@
 #include "hiredis.h"
 #include "client_ds.h"
 #include "net.h"
+#include "redis_com.h"
 
 /* handler the CONNECT message */
 int mqtt_handler_connect(struct mqtt_packet *packet)
@@ -23,12 +24,6 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
     {
         return ret;
     }
-    printf("The Payload: \n");
-    for(i = 0; i < packet->remain_length; i++)
-    {
-        printf("%x  ", packet->payload[i]);
-    }
-    printf("\n");
     //Read the Protocol Name which follow the remain_length;
     if((ret = mqtt_read_protocol_name(packet)) != MQTT_ERR_SUCCESS)
     {
@@ -136,12 +131,65 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
 
 void shut_dead_conn(int sockfd)
 {
+    printf("Shut a dead conn: %d\n", sockfd);
     struct server_env *env = get_server_env();
     assert(env != NULL);
     
     struct client_data *d;
     d = &env->clients[sockfd];
-    remove_timer(env->timer_list, d->timer);
+    remove_timer(env->timer_list, &(d->timer));
     removefd(env, sockfd);
     printf("shut_dead_conn\n");    
+}
+
+int mqtt_handler_publish(struct mqtt_packet *packet)
+{
+    int ret, i;
+    int sockfd = packet->fd->sockfd;
+    uint8_t byte;
+
+    if((ret = mqtt_parse_flags(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    if((ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }    
+
+    if((ret = mqtt_read_payload(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    
+    if((ret = mqtt_str(packet, &(packet->msg.topic))) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    
+    if(packet->qosflag == 0x01 || packet->qosflag == 0x02)
+    {
+        if((ret = mqtt_str(packet, &(packet->msg.id))) != MQTT_ERR_SUCCESS)
+        {
+            return ret;
+        }
+    }  
+
+    if((ret = mqtt_str(packet, &(packet->msg.body))) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    } 
+    
+    struct mqtt_topic *topic;
+    
+    //free(packet->payload);
+    update_conn_timer(packet->fd->sockfd); 
+    return MQTT_ERR_SUCCESS;
+}
+int update_conn_timer(int sockfd)
+{
+    struct server_env *env = get_server_env();
+    assert(env);
+    struct client_data *p_client = &(env->clients[sockfd]);
+    return inc_timer(env->timer_list, &(p_client->timer)); 
 }

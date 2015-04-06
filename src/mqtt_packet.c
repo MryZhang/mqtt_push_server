@@ -241,3 +241,12 @@ void mqtt_console_payload(struct mqtt_packet *packet)
     }
     printf("end of print==============\n");
 }
+
+int mqtt_parse_flags(struct mqtt_packet *packet)
+{
+    packet->dupflag = (packet->command & 0x08) >> 3;
+    packet->qosflag = (packet->command & 0x06) >> 1;
+    packet->retainflag = (packet->command & 0x01);
+    if(packet->qosflag != 0x00 && packet->qosflag != 0x01 && packet->qosflag != 0x02) return MQTT_ERR_PROTOCOL;
+    return MQTT_ERR_SUCCESS;
+}

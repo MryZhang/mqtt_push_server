@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -7,11 +8,6 @@
 
 int timer_init(struct util_timer_list *list)
 {
-    list = malloc(sizeof(struct util_timer_list));
-    if(!list)
-    {
-        return MQTT_ERR_NOMEM;
-    }
 
     list->head = NULL;
     list->tail = NULL;
@@ -107,6 +103,7 @@ int remove_timer(struct util_timer_list *list, struct util_timer *timer)
 
 void timer_tick(struct util_timer_list *list)
 {
+    printf("Timer tick ====================\n");
     if(!list || !list->head) return;
 
     printf("Start to tick:\n");
@@ -118,20 +115,32 @@ void timer_tick(struct util_timer_list *list)
         {
             break;
         }
+        printf("Found a expired timer============\n");
         struct client_data *data;
         get_client_data(tmp, &data);
+        printf("Call back to shut dead conn\n");
+        assert(data);
+        assert(data->dead_clean);
+        assert(data->sockfd);
         data->dead_clean(data->sockfd);
         list->head = tmp->next;
         if(list->head)
         {
             list->head->prev = NULL;
         }
-        free(tmp);
         tmp = list->head;
     }
 }
 
 void get_client_data(struct util_timer *timer, struct client_data **data)
 {
-    *data = (struct client_data *) (timer - sizeof(int) - sizeof(struct sockaddr_in)); 
+    printf("func : get_client_data timer address 0x%x\n", timer);
+    *data = (struct client_data *) (timer); 
+    printf("func : get_client_data client_data address 0x%x\n", *data);
+}
+
+int inc_timer(struct util_timer_list *list, struct util_timer *timer)
+{
+    timer->expire += 24; 
+    return adjust_timer(list, timer);
 }
