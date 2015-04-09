@@ -15,8 +15,8 @@ struct mqtt_hash_n
     struct mqtt_hash_n *next;
 };
 int mqtt_hash_init(struct mqtt_hash_t **hash_t);
-int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string *key, struct mqtt_string *data);
-int mqtt_hash_del(struct mqt_hash_t *hash_t, struct mqtt_string *key);
-int _mqtt_hash_calinx(struct mqtt_string *key);
-
+int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, struct mqtt_string data);
+struct mqtt_hash_n *mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_string key);
+int _mqtt_hash_calinx(struct mqtt_string key);
+struct mqtt_hash_n *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key);
 #endif

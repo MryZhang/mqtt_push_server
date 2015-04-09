@@ -14,17 +14,19 @@ struct client_data
     uint8_t *client_id;
 };
 
+struct client_in_hash
+{
+    int sockfd;
+    struct mqtt_string client_id;
+    struct client_msg_node *head_nsend;  
+    struct client_msg_node *tail_nsend;
+};
 struct client_node
 {
     struct mqtt_string id;
     struct client_node *next;
+    struct client_in_hash *pclient;
 };
 
-struct client_in_redis
-{
-    int sockfd;
-    struct mqtt_string client_id;
-    struct client_msg_node *head_not_send;  
-};
 
 #endif

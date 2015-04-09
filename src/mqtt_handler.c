@@ -181,7 +181,13 @@ int mqtt_handler_publish(struct mqtt_packet *packet)
     } 
     
     struct mqtt_topic *topic;
-    
+    struct mqtt_string *pstr_topic = mqtt_string_init(packet->msg.body);
+    topic = mqtt_topic_get(*pstr_topic);
+    if(topic == NULL)
+    {
+        mqtt_topic_add(*pstr_topic);
+    }
+    _mqtt_topic_add_msg(topic, *pstr_topic);
     //free(packet->payload);
     update_conn_timer(packet->fd->sockfd); 
     return MQTT_ERR_SUCCESS;

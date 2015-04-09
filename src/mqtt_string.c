@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include "mqtt_string.h"
 
@@ -26,13 +27,13 @@ int mqtt_string_copy(struct mqtt_string *src, struct mqtt_string *dst)
     return 0;
 }
 
-int mqtt_string_cmp(struct mqtt_string *str_foo, struct mqtt_string *str_bar)
+int mqtt_string_cmp(struct mqtt_string str_foo, struct mqtt_string str_bar)
 {
-    if(!str_foo || !str_bar || str_foo->len != str_bar->len)  return -1;
+    if( str_foo.len != str_bar.len)  return -1;
     int i;
-    for(i = 0; i < str_bar->len; i++)
+    for(i = 0; i < str_bar.len; i++)
     {
-        if(str_foo->body[i] != str_bar->body[i])
+        if(str_foo.body[i] != str_bar.body[i])
         {
             return -1;
         }
