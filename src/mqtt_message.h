@@ -39,5 +39,6 @@ int mqtt_topic_add(struct mqtt_string topic_name);
 int mqtt_topic_add_msg(struct mqtt_string topic_namne, struct mqtt_string msg);
 int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg);
 struct msg_node *mqtt_msg_init(struct mqtt_string msg);
+struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg);
 uint8_t *mqtt_msg_id_gen();
 #endif

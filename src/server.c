@@ -249,7 +249,13 @@ int main(int argc, char **argv)
     //initiate the timer list
     env->timer_list = malloc(sizeof(struct util_timer_list));
     assert(env->timer_list);
+    memset(env->timer_list, '\0', sizeof(struct util_timer_list));
     if( mqtt_hash_init(&(env->topic_table))!=0)
+    {
+        perror("malloc");
+        exit(1);
+    }
+    if( mqtt_hash_init(&(env->client_table) != 0)
     {
         perror("malloc");
         exit(1);

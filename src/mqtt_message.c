@@ -105,24 +105,33 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
     if(topic->clients->next != NULL)
     {
         struct client_node *node = topic->clients->next;
-                
+        while(node != NULL)
+        {
+            mqtt_distribute_msg(node->pclient, msg_n);
+            node = node->next;
+        } 
     }
      
     return 0;
 }
-
+//distribute the message to the clients which subscribe the topic
 int mqtt_distribute_msg(struct client_in_hash *client_n, struct msg_node *msg_n)
 {
     if(!client_n || !msg_n) return -1;
+    //copy the message
+    struct client_msg_node *cnode = mqtt_client_msg_init(msg_n->body);
+    assert(cnode); 
     if(client_n->head_nsend == NULL)  
     {
-        struct msg_node *new_node = malloc(sizeof(struct msg_node));
-        memset(
+        client_n->head_nsend = client_n->tail_nsend = cnode;    
+    }else{
+        cnode->next = client_n->head_nsend;
+        client_n->head_nsend = cnode;
     }
     return 0;
 }
 
-struct msg_node *mgtt_msg_init(struct mqtt_string msg)
+struct msg_node *mqtt_msg_init(struct mqtt_string msg)
 {
     struct msg_node *msg_n = malloc(sizeof(struct msg_node));
     aseert(msg_n);
@@ -131,6 +140,11 @@ struct msg_node *mgtt_msg_init(struct mqtt_string msg)
     return msg_n;     
 }
 
+strcut client_msg_node *mqtt_client_msg_init(struct mqtt_string msg)
+{
+    struct client_msg_node *node = malloc(sizeof(struct client_msg_node));
+    node->
+}
 uint8_t *mqtt_msg_id_gen()
 {
     int index = 0;

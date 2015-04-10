@@ -14,6 +14,7 @@ struct server_env
     struct client_data  clients[1024];
     struct util_timer_list *timer_list;
     struct mqtt_hash_t *topic_table; 
+    struct mqtt_hash_t *client_table;
 };
 int setnonblocking(int fd);
 void addfd(struct server_env *env, int fd, int oneshot);

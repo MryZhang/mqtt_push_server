@@ -11,6 +11,7 @@ int mqtt_hash_init(struct mqtt_hash_t **hash_t)
 {
     *hash_t = malloc(sizeof(struct mqtt_hash_t));
     assert(*hash_t);
+    memset(*hash_t, '\0', sizeof(struct mqtt_hash_t));
     int i = 0;
     for(i = 0; i < HASH_LEN; i++)
     {

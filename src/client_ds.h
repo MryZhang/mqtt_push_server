@@ -28,5 +28,11 @@ struct client_node
     struct client_in_hash *pclient;
 };
 
+struct mqtt_hash_t *get_client_table();
+struct mqtt_client_in_hash *mqtt_get_client_s(struct mqtt_string client_id);
+struct mqtt_client_in_hash *_mqtt_get_client_s(struct mqtt_hash_t *hash_t, struct mqtt_string client_id);
+int mqtt_add_client_s(struct mqtt_string client_id, int sockfd);
+int _mqtt_add_client_s(struct mqtt_hash_t *hash_t, struct mqtt_string client_id, int sockfd);
+struct client_in_hash *_mqtt_init_client_in_hash(struct mqtt_string client_id, int sockfd);
 
 #endif
