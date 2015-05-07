@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include "mqtt_timer.h"
 #include "mqtt_string.h"
+#include "mqtt_hash.h"
 
 struct client_data
 {

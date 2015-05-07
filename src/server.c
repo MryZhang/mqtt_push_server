@@ -88,7 +88,11 @@ void* conn_handler(void *arg)
                 }
                 break;        
             case PUBLISH:
-                mqtt_handler_publish(packet);
+                if( (ret = mqtt_handler_publish(packet)) != MQTT_ERR_SUCCESS)
+                {
+                    printf("Error: publish handler errcode : %d\n", ret);
+                    shut_dead_conn(packet->fd->sockfd);
+                }
                 break;  
             case PINGREQ:
                 break; 
@@ -112,23 +116,23 @@ void et(struct server_env *env, int number, int listenfd)
         int sockfd = env->events[i].data.fd;
         if( sockfd == listenfd )
         {
-            printf("New Client=====================\n");
             struct sockaddr_in client_address;
             socklen_t addr_len = sizeof(client_address);
             int connfd = accept(listenfd, (struct sockaddr*) &client_address, &addr_len);
+            printf("Info: a new client [%d] is arrived.\n", connfd);
             env->clients[connfd].address = client_address;
             env->clients[connfd].sockfd = connfd;
             addfd(env, connfd, 1);
 
             time_t cur = time(NULL);
-            env->clients[connfd].timer.expire = cur + 5*TIMESLOT;
+            // the expire time is 15s
+            env->clients[connfd].timer.expire = cur + 15*TIMESLOT;
             env->clients[connfd].dead_clean = shut_dead_conn;
-            printf("client address: 0x%x\n", &(env->clients[connfd]));
-            printf("timer address: 0x%x\n", &(env->clients[connfd].timer));
+            //printf("Info: client address [0x%x\n]", &(env->clients[connfd]));
+            //printf("timer address: 0x%x\n", &(env->clients[connfd].timer));
             assert(add_timer(env->timer_list, &(env->clients[connfd].timer))== MQTT_ERR_SUCCESS);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
-            printf("ALARM========================\n");
             int sig;
             char signals[1024];
             ret = recv(pipefd[0], signals, sizeof(signals), 0);
@@ -255,7 +259,7 @@ int main(int argc, char **argv)
         perror("malloc");
         exit(1);
     }
-    if( mqtt_hash_init(&(env->client_table) != 0)
+    if( mqtt_hash_init(&(env->client_table)) != 0)
     {
         perror("malloc");
         exit(1);
@@ -280,7 +284,7 @@ int main(int argc, char **argv)
         ret = epoll_wait(env->epollfd, env->events, MAX_EVENT_NUM, 100);
         if(ret < 0)
         {
-            perror("epoll_wait:");
+            //perror("epoll_wait:");
             continue;
         }
         et(env, ret, listenfd);

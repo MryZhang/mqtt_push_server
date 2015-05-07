@@ -103,10 +103,8 @@ int remove_timer(struct util_timer_list *list, struct util_timer *timer)
 
 void timer_tick(struct util_timer_list *list)
 {
-    printf("Timer tick ====================\n");
     if(!list || !list->head) return;
 
-    printf("Start to tick:\n");
     time_t cur = time(NULL);
     struct util_timer *tmp = list->head;
     while(tmp)
@@ -115,10 +113,9 @@ void timer_tick(struct util_timer_list *list)
         {
             break;
         }
-        printf("Found a expired timer============\n");
+        printf("Event: a timer is expired.\n");
         struct client_data *data;
         get_client_data(tmp, &data);
-        printf("Call back to shut dead conn\n");
         assert(data);
         assert(data->dead_clean);
         assert(data->sockfd);

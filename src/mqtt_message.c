@@ -1,9 +1,10 @@
 #include <stdlib.h>
+#include <assert.h>
 
-#include "mqqtt_message.h"
+#include "mqtt_message.h"
 #include "server.h"
 #include "util.h"
-static mqtt_hash_t *topic_table;
+static struct mqtt_hash_t *topic_table;
 
 struct mqtt_hash_t *get_topic_table()
 {
@@ -29,7 +30,7 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     {
         return NULL;
     }else{
-        return (struct mqtt_topic *)node->data->body;
+        return (struct mqtt_topic *)node->data.body;
     }
 
 }
@@ -38,15 +39,15 @@ struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name)
     struct mqtt_topic *topic = malloc(sizeof(struct mqtt_topic));
     assert(topic);
     
-    mqtt_string_copy(&topic_name, topic->name);
-    topic->clients = NULL;
-    topic->msg_sd_list->head = topic->msg_sd_list->tail = NULL;
-    topic->msg_bf_list->head = topic->msg_bf_list->tail = NULL;
+    mqtt_string_copy(&topic_name, &topic->name);
+    topic->msg_sd_list.head = topic->msg_sd_list.tail = NULL;
+    topic->msg_bf_list.head = topic->msg_bf_list.tail = NULL;
     return topic;
 }
 
-int mqtt_topic_add(struct mqtt_string topic_name)
+int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
 {
+    printf("Info:  add the topic [%s]\n", topic_name.body);
     struct mqtt_hash_t *_topic_table = get_topic_table();
     if(!_topic_table)
     {
@@ -58,6 +59,10 @@ int mqtt_topic_add(struct mqtt_string topic_name)
             struct mqtt_topic *topic = mqtt_topic_init(topic_name);
             assert(topic);
             struct mqtt_string data;
+            if(t != NULL)
+            {
+                *t = topic;
+            }
             mqtt_string_alloc(&data, (uint8_t *)topic);
             mqtt_hash_set(_topic_table, topic_name, data);
         }
@@ -67,11 +72,11 @@ int mqtt_topic_add(struct mqtt_string topic_name)
 
 int mqtt_topic_add_msg(struct mqtt_string topic_name, struct mqtt_string msg)
 {
-    struct mqtt_topic topic = mqtt_topic_get(topic_name);
+    struct mqtt_topic *topic = mqtt_topic_get(topic_name);
     if(!topic)
     {
-        topic = mqtt_topic_add(topic_name);
-        if(!topic)
+        int ret = mqtt_topic_add(topic_name, &topic);
+        if(!ret)
         {
             printf("func topic_add_msg add topic failure\n");
             exit(1);
@@ -95,16 +100,16 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
         return -1;
     } 
     struct msg_node *msg_n = mqtt_msg_init(msg);
-    if(topic->msg_bf_list->head == NULL)
+    if(topic->msg_bf_list.head == NULL)
     {
-       topic->msg_bf_list->head = topic->msg_bf_list->tail =  msg_n;
+       topic->msg_bf_list.head = topic->msg_bf_list.tail =  msg_n;
     }else{
-        topic->msg_bf_list->tail->next = msg_n;
-        topic->msg_bf_list->tail = msg_n;
+        topic->msg_bf_list.tail->next = msg_n;
+        topic->msg_bf_list.tail = msg_n;
     }
-    if(topic->clients->next != NULL)
+    if(topic->clients.next != NULL)
     {
-        struct client_node *node = topic->clients->next;
+        struct client_node *node = topic->clients.next;
         while(node != NULL)
         {
             mqtt_distribute_msg(node->pclient, msg_n);
@@ -134,16 +139,19 @@ int mqtt_distribute_msg(struct client_in_hash *client_n, struct msg_node *msg_n)
 struct msg_node *mqtt_msg_init(struct mqtt_string msg)
 {
     struct msg_node *msg_n = malloc(sizeof(struct msg_node));
-    aseert(msg_n);
-    mqtt_string_copy(&msg, msg_n->body);
+    assert(msg_n);
+    mqtt_string_copy(&msg, &(msg_n->body));
     msg_n->msg_id = mqtt_msg_id_gen();
     return msg_n;     
 }
 
-strcut client_msg_node *mqtt_client_msg_init(struct mqtt_string msg)
+struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg)
 {
     struct client_msg_node *node = malloc(sizeof(struct client_msg_node));
-    node->
+    mqtt_string_alloc(&(node->msg_id), msg.body);
+    node->f_send = 0;
+    node->next = NULL;
+    return node;
 }
 uint8_t *mqtt_msg_id_gen()
 {
@@ -152,7 +160,6 @@ uint8_t *mqtt_msg_id_gen()
     gettimeofday(&tv, NULL);
     uint8_t *id = malloc(sizeof(uint8_t) *17); 
     int tv_sec = tv.tv_sec;
-    int tv_usec = tv.tv_usec;
     while(tv_sec > 0)
     {
         int byte = tv_sec % 10;

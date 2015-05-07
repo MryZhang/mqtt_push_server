@@ -17,7 +17,7 @@ struct msg_list
 {
     struct msg_node *head;
     struct msg_node *tail;
-}
+};
 struct mqtt_topic
 {
     struct mqtt_string name;
@@ -30,12 +30,13 @@ struct client_msg_node
     struct mqtt_string msg_id; 
     int f_send;
     struct mqtt_string *msg_string;
+    struct client_msg_node *next;
 };
 
 struct mqtt_hash_t *get_topic_table();
 struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name);
 struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name);
-int mqtt_topic_add(struct mqtt_string topic_name);
+int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t);
 int mqtt_topic_add_msg(struct mqtt_string topic_namne, struct mqtt_string msg);
 int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg);
 struct msg_node *mqtt_msg_init(struct mqtt_string msg);

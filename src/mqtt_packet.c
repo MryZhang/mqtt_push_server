@@ -68,7 +68,6 @@ int mqtt_remain_length(struct mqtt_packet *packet)
         }
     }while((digit & 0x80) != 0 && byte_num <= 4);
     packet->remain_length = value;
-    printf("In file mqtt_packet.c: \n");
     return MQTT_ERR_SUCCESS;
 }
 int mqtt_read_payload(struct mqtt_packet *packet)
@@ -115,6 +114,7 @@ int mqtt_payload_bytes(struct mqtt_packet *packet, uint8_t *bytes, uint16_t len)
     {
         read_len++;
     }
+    printf("Info:  read_len [%d].\n", read_len);
     if(read_len < len)
     {
         return MQTT_ERR_PROTOCOL;

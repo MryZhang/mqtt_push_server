@@ -7,6 +7,7 @@
 
 void mqtt_string_alloc(struct mqtt_string *string, uint8_t *str)
 {
+    assert(string != NULL);
     string->len = strlen(str);
     string->body = malloc(string->len * sizeof(uint8_t));
     assert(string->body);

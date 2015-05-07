@@ -9,6 +9,7 @@
 #include "client_ds.h"
 #include "net.h"
 #include "redis_com.h"
+#include "mqtt_message.h"
 
 /* handler the CONNECT message */
 int mqtt_handler_connect(struct mqtt_packet *packet)
@@ -148,17 +149,21 @@ int mqtt_handler_publish(struct mqtt_packet *packet)
     int sockfd = packet->fd->sockfd;
     uint8_t byte;
 
+    printf("Info: begin to handler publish.\n");
     if((ret = mqtt_parse_flags(packet)) != MQTT_ERR_SUCCESS)
     {
+        printf("Error:  parse flags.\n");
         return ret;
     }
     if((ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
     {
+        printf("Error:  remain_length.\n");
         return ret;
     }    
 
     if((ret = mqtt_read_payload(packet)) != MQTT_ERR_SUCCESS)
     {
+        printf("Error:  read payload.\n");
         return ret;
     }
     
@@ -185,7 +190,7 @@ int mqtt_handler_publish(struct mqtt_packet *packet)
     topic = mqtt_topic_get(*pstr_topic);
     if(topic == NULL)
     {
-        mqtt_topic_add(*pstr_topic);
+        mqtt_topic_add(*pstr_topic, NULL);
     }
     _mqtt_topic_add_msg(topic, *pstr_topic);
     //free(packet->payload);

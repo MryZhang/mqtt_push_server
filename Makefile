@@ -1,6 +1,6 @@
 object = net.o util.o mqtt_packet.o mqtt_handler.o \
 		 command_send.o server.o mqtt_timer.o redis_com.o \
-		 mqtt_hash.o mqtt_string.o
+		 mqtt_hash.o mqtt_string.o client_ds.o mqtt_message.o
 gcc = gcc
 CFLAG = -c
 
@@ -29,5 +29,9 @@ mqtt_hash.o : ./src/mqtt_hash.c ./src/mqtt_hash.h
 	$(gcc) $(CFLAG) ./src/mqtt_hash.c $(INCLUDEPATH)
 mqtt_string.o : ./src/mqtt_string.c ./src/mqtt_string.h
 	$(gcc) $(CFLAG) ./src/mqtt_string.c $(INCLUDEPATH)
+client_ds.o : ./src/client_ds.c ./src/client_ds.h
+	$(gcc) $(CFLAG) ./src/client_ds.c $(INCLUDEPATH)
+mqtt_message.o : ./src/mqtt_message.c
+	$(gcc) $(CFLAG) ./src/mqtt_message.c $(INCLUDEPATH)
 clear : 
 	rm *.o -rf
