@@ -15,7 +15,7 @@ struct conn_flag
 };
 struct mqtt_message
 {
-    uint8_t *id;
+    uint8_t id[2];
     uint8_t *topic;
     uint8_t *body;
 };
@@ -41,6 +41,7 @@ struct mqtt_packet
     uint8_t *username;
     uint8_t *password;
     struct mqtt_message msg;
+    uint8_t *publish_content;
 };
 
 int mqtt_packet_alloc(struct mqtt_packet *packet);
@@ -58,4 +59,6 @@ uint8_t mqtt_fix_header(struct mqtt_packet *packet);
 int mqtt_send_payload(struct mqtt_packet *packet);
 void mqtt_console_payload(struct mqtt_packet *packet);
 int mqtt_parse_flags(struct mqtt_packet *packet);
+void mqtt_packet_format(struct mqtt_packet *packet);
+int mqtt_publish_content(struct mqtt_packet *packet);
 #endif

@@ -174,26 +174,36 @@ int mqtt_handler_publish(struct mqtt_packet *packet)
     
     if(packet->qosflag == 0x01 || packet->qosflag == 0x02)
     {
-        if((ret = mqtt_str(packet, &(packet->msg.id))) != MQTT_ERR_SUCCESS)
+        if((ret = mqtt_payload_bytes(packet, packet->msg.id, 2)) != MQTT_ERR_SUCCESS)
         {
             return ret;
         }
     }  
 
-    if((ret = mqtt_str(packet, &(packet->msg.body))) != MQTT_ERR_SUCCESS)
-    {
-        return ret;
-    } 
-    
+    mqtt_packet_format(packet);    
+
+    mqtt_publish_content(packet);  
+    printf("Info: have got the publish content\n");
     struct mqtt_topic *topic;
     struct mqtt_string *pstr_topic = mqtt_string_init(packet->msg.body);
+    printf("Info: pstr_topic len [%d]\n", pstr_topic->len);
+    printf("Info: pstr_topic body [%s]\n", pstr_topic->body);
+    printf("Info: have got the topic string\n");
     topic = mqtt_topic_get(*pstr_topic);
+    printf("Info: have get the topic\n");
     if(topic == NULL)
     {
-        mqtt_topic_add(*pstr_topic, NULL);
+        mqtt_topic_add(*pstr_topic, &topic);
     }
+    assert(topic != NULL);
+    printf("Info: topic name [%s]\n", topic->name.body);
     _mqtt_topic_add_msg(topic, *pstr_topic);
     //free(packet->payload);
+    /*struct mqtt_topic *test_topic = mqtt_topic_get(*pstr_topic);
+    if(test_topic != NULL)
+    {
+        printf("Info: test topic [%s]\n", test_topic->name.body);
+    }*/
     update_conn_timer(packet->fd->sockfd); 
     return MQTT_ERR_SUCCESS;
 }
@@ -203,4 +213,46 @@ int update_conn_timer(int sockfd)
     assert(env);
     struct client_data *p_client = &(env->clients[sockfd]);
     return inc_timer(env->timer_list, &(p_client->timer)); 
+}
+
+int mqtt_handler_subscribe(struct mqtt_packet *packet)
+{
+    int ret, i;
+    int sockfd = packet->fd->sockfd;
+    uint8_t byte;
+
+    if( (ret = mqtt_parse_flags(packet)) != MQTT_ERR_SUCCESS)
+    {
+        printf("Error: parse flags.\n");
+        return ret;
+    }    
+
+    if( (ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
+    {
+        printf("Error: remain length.\n");
+        return ret;
+    }
+    
+    if( (ret = mqtt_read_payload(packet)) != MQTT_ERR_SUCCESS)
+    {
+        printf("Error: payload\n");
+        return ret;
+    }
+    if(packet->qosflag == 0x01)
+    {
+        if( (ret = mqtt_payload_bytes(packet, packet->msg.id, 2))
+            != MQTT_ERR_SUCCESS)
+        {
+            printf("Error: msg id parse\n");
+            return ret;
+        }
+    }
+    
+    if( (ret = mqtt_parse_subtopices(packet)) != MQTT_ERR_SUCCESS)
+    {
+        printf("Error: publish content\n");
+        return ret;
+    } 
+
+    return MQTT_ERR_SUCCESS;    
 }

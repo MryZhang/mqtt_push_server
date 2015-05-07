@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <assert.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "server.h"
 #include "mqtt_packet.h"
+#include "mqtt_message.h"
 #include "net.h"
 
 /* build packet */
@@ -109,7 +111,7 @@ int mqtt_payload_bytes(struct mqtt_packet *packet, uint8_t *bytes, uint16_t len)
 {
     int ret;
     uint16_t read_len = 0;
-    if(!bytes) return MQTT_ERR_PROTOCOL;
+    assert(bytes);
     while(read_len < len && (ret = mqtt_payload_byte(packet, &bytes[read_len])) == MQTT_ERR_SUCCESS)
     {
         read_len++;
@@ -140,7 +142,7 @@ int mqtt_str(struct mqtt_packet *packet, uint8_t **pstr)
     printf("func mqtt_str: len_msb: %d\n", len_msb);
     printf("func mqtt_str: len_lsb: %d\n", len_lsb); 
     printf("func mqtt_str: str_len:%d\n", str_len);
-    *pstr = malloc(sizeof(uint8_t) * (str_len + 1));
+    (*pstr) = malloc(sizeof(uint8_t) * (str_len+1));
     (*pstr)[str_len] = '\0';
     if((ret = mqtt_payload_bytes(packet, *pstr, str_len)) != MQTT_ERR_SUCCESS)
     {
@@ -248,5 +250,62 @@ int mqtt_parse_flags(struct mqtt_packet *packet)
     packet->qosflag = (packet->command & 0x06) >> 1;
     packet->retainflag = (packet->command & 0x01);
     if(packet->qosflag != 0x00 && packet->qosflag != 0x01 && packet->qosflag != 0x02) return MQTT_ERR_PROTOCOL;
+    return MQTT_ERR_SUCCESS;
+}
+int mqtt_publish_content(struct mqtt_packet *packet)
+{
+    int i, lcontent, j;
+    assert(packet->pos < packet->remain_length);
+    lcontent = packet->remain_length - packet->pos + 1;
+    printf("Info: lcontent [%d]\n", lcontent);
+    packet->msg.body = malloc(sizeof(uint8_t) * lcontent);
+    if(!packet->msg.body)
+    {
+        printf("Err: publish_content mem failure.\n");
+        return MQTT_ERR_NOMEM;
+    }
+    for(i = packet->pos, j = 0; i < packet->remain_length; i++, j++)
+    {
+        printf("Info: i [%d], j [%d]\n", i, j);
+        packet->msg.body[j] = packet->payload[i];
+    }
+    packet->msg.body[j] = '\0';
+    return MQTT_ERR_SUCCESS;
+}
+
+void mqtt_packet_format(struct mqtt_packet *packet)
+{
+    printf("Packet Detail: \n");
+    printf("    connfd: %d,\n", packet->fd->sockfd);
+    printf("    dupflag: %d,\n", packet->dupflag);
+    printf("    qosflag: %d,\n", packet->qosflag);
+    printf("    remain_length: %d,\n", packet->remain_length);
+    printf("    remain_count: %d,\n", packet->remain_count);
+    printf("    packet_len: %d,\n", packet->packet_len);
+    printf("    pos: %d,\n", packet->pos);
+    printf("End of Packet Detai\n\n");
+}
+
+int mqtt_parse_subtopices(struct mqtt_packet *packet)
+{
+    while(packet->pos < packet->remain_length)
+    {
+        uint8_t *p_topic;
+        mqtt_str(packet, &p_topic); 
+        uint8_t qos;
+        mqtt_payload_byte(packet, &qos);
+        printf("Info: topic name [%s]\n", p_topic);
+        printf("Info: topic qos [%d]\n", qos);
+        struct mqtt_string ms_topic;
+        mqtt_string_alloc(&ms_topic, p_topic, strlen(p_topic));
+
+        struct mqtt_topic *topic = mqtt_topic_get(ms_topic);
+        if(!topic)
+        {
+            printf("Info: topic [%s] is not existed!\n");    
+        }else{
+            printf("Info: topic [%s] is existed.\n"); 
+        }
+    }    
     return MQTT_ERR_SUCCESS;
 }

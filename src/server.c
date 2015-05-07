@@ -78,9 +78,10 @@ void* conn_handler(void *arg)
         packet->command = byte;
         packet->fd = (struct fds*)arg;
 
-        switch(packet->command&0xFE)
+        switch(packet->command&0xF0)
         {
             case CONNECT:
+                printf("Info: got a connect request\n");
                 if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
                 {
                     printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
@@ -88,12 +89,21 @@ void* conn_handler(void *arg)
                 }
                 break;        
             case PUBLISH:
+                printf("Info: got a publish request\n");
                 if( (ret = mqtt_handler_publish(packet)) != MQTT_ERR_SUCCESS)
                 {
                     printf("Error: publish handler errcode : %d\n", ret);
                     shut_dead_conn(packet->fd->sockfd);
                 }
                 break;  
+            case SUBSCRIBE:
+                printf("Info: got a subscribe request\n");
+                if( (ret = mqtt_handler_subscribe(packet)) != MQTT_ERR_SUCCESS)
+                {
+                    printf("Error: subscribe handler errcode [%d]\n", ret);
+                    shut_dead_conn(packet->fd->sockfd);
+                }
+                break;
             case PINGREQ:
                 break; 
             default:
@@ -102,6 +112,35 @@ void* conn_handler(void *arg)
     }else if(recv_len == 0)
     {
         shut_dead_conn(sockfd);
+    }else{
+        printf("Info: ret < 0\n");
+        if(errno == EAGAIN)
+        {
+            reset_oneshot(env, sockfd);
+            printf("Info: read later.\n");
+        }
+    }
+    while(1)
+    {
+        char buf[1024];
+        memset(buf, '\0', 1024);
+        int ret = recv(sockfd, buf, 1023, 0);
+        if(ret == 0)
+        {
+            close(sockfd);
+            printf("Info: foreiner closed the connection\n");
+            break;
+        }else if(ret < 0)
+        {
+            if(errno == EAGAIN)
+            {
+                reset_oneshot(env, sockfd);
+                printf("Info: read later\n");
+                break;
+            }
+        }else{
+            printf("get content: %s\n", buf);
+        }
     }
     struct server_env *env = get_server_env();
     assert(env != NULL);
@@ -258,7 +297,7 @@ int main(int argc, char **argv)
     {
         perror("malloc");
         exit(1);
-    }
+    }    
     if( mqtt_hash_init(&(env->client_table)) != 0)
     {
         perror("malloc");

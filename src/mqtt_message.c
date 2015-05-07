@@ -8,13 +8,17 @@ static struct mqtt_hash_t *topic_table;
 
 struct mqtt_hash_t *get_topic_table()
 {
-
+   // printf("a\n");
     if(!topic_table)
     {
+       // printf("b\n");
         struct server_env *env = get_server_env();
+    //printf("c\n");
         if(!env) return NULL;
+    //printf("d\n");
         return env->topic_table;
     }
+    //printf("e\n");
     return topic_table;
 
 } 
@@ -23,13 +27,16 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     struct mqtt_hash_t *_topic_table = get_topic_table();
     if(!_topic_table)
     {
+        printf("Err: topic_table is NULL POINTER in mqtt_topic_get\n");
         return NULL;
     }
-    struct mqtt_hash_n *node = mqtt_hash_get(topic_table, topic_name);
+    struct mqtt_hash_n *node = mqtt_hash_get(_topic_table, topic_name);
     if(!node)
     {
+        printf("Err: the topic is not existed\n");
         return NULL;
     }else{
+        printf("Info: get the topic[%s] in mqtt_topic_get\n", topic_name.body);
         return (struct mqtt_topic *)node->data.body;
     }
 
@@ -39,7 +46,7 @@ struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name)
     struct mqtt_topic *topic = malloc(sizeof(struct mqtt_topic));
     assert(topic);
     
-    mqtt_string_copy(&topic_name, &topic->name);
+    mqtt_string_copy(&topic_name, &(topic->name));
     topic->msg_sd_list.head = topic->msg_sd_list.tail = NULL;
     topic->msg_bf_list.head = topic->msg_bf_list.tail = NULL;
     return topic;
@@ -49,21 +56,27 @@ int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
 {
     printf("Info:  add the topic [%s]\n", topic_name.body);
     struct mqtt_hash_t *_topic_table = get_topic_table();
+    //printf("1\n");
     if(!_topic_table)
     {
         return -1;
     }else{
+        //printf("2\n");
         struct mqtt_topic *topic = mqtt_topic_get(topic_name);
         if(!topic)
         {
+            printf("Info: you can add the topic [%s]\n", topic_name.body);
             struct mqtt_topic *topic = mqtt_topic_init(topic_name);
             assert(topic);
+            printf("Info: topic name [%s] in mqtt_topic_add\n", topic->name.body);
             struct mqtt_string data;
             if(t != NULL)
             {
                 *t = topic;
             }
-            mqtt_string_alloc(&data, (uint8_t *)topic);
+            mqtt_string_alloc(&data, (uint8_t *)topic, sizeof(struct mqtt_topic));
+            struct mqtt_topic *tt = (struct mqtt_topic *) (data.body);
+            printf("Info: tt topic [%s]\n", tt->name.body);
             mqtt_hash_set(_topic_table, topic_name, data);
         }
         return 0;
@@ -96,7 +109,7 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
 {
     if(!topic)
     {
-        printf("func _mqtt_topic_add_msg topic NULL \n");
+        printf("Err: need a topic to add msg\n");
         return -1;
     } 
     struct msg_node *msg_n = mqtt_msg_init(msg);
@@ -117,6 +130,7 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
         } 
     }
      
+    printf("Info: add msg [%s] to the topic [%s]\n", msg.body, topic->name.body);
     return 0;
 }
 //distribute the message to the clients which subscribe the topic
@@ -148,7 +162,7 @@ struct msg_node *mqtt_msg_init(struct mqtt_string msg)
 struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg)
 {
     struct client_msg_node *node = malloc(sizeof(struct client_msg_node));
-    mqtt_string_alloc(&(node->msg_id), msg.body);
+    mqtt_string_alloc(&(node->msg_id), msg.body, msg.len);
     node->f_send = 0;
     node->next = NULL;
     return node;
@@ -176,3 +190,4 @@ uint8_t *mqtt_msg_id_gen()
     id[index] = '\0';
     return id;
 }
+

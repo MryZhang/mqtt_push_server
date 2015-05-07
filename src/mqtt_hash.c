@@ -22,6 +22,7 @@ int mqtt_hash_init(struct mqtt_hash_t **hash_t)
 
 int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, struct mqtt_string data)
 {
+    printf("Info: the begin of mqtt_hash_set [%s]\n", key.body);
     int i, index = 0;
     index = _mqtt_hash_calinx(key);
     struct mqtt_hash_n *hiterm;
@@ -91,12 +92,14 @@ struct mqtt_hash_n * mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_strin
 
 int _mqtt_hash_calinx(struct mqtt_string key)
 {
-    int index, i;
+    int index, i;   
+    index = 0;
     for(i = 0; i < key.len; i++)
     {
         index += key.body[i];
     }
-    index /= 26;
+    index %= 26;
+    printf("Info: key [%s] index [%d]\n", key.body, index);
     return index;
 }
 
@@ -104,7 +107,7 @@ struct mqtt_hash_n *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string
 {
     if(!hash_t)
     {
-        printf("func mqtt_hash_n hash_t : NULL\n");
+        printf("Err: the hash table should not be null in mqtt_hash_get.\n");
         return NULL;
     }
     int index = _mqtt_hash_calinx(key);
