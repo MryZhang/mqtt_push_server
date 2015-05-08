@@ -11,6 +11,11 @@
 #include "mqtt_message.h"
 #include "net.h"
 
+int mqtt_packet_init(struct mqtt_packet *packet)// not used
+{
+    packet->pos = 0;  
+    return MQTT_ERR_SUCCESS;
+}
 /* build packet */
 int mqtt_packet_alloc(struct mqtt_packet *packet)
 {
@@ -59,7 +64,6 @@ int mqtt_remain_length(struct mqtt_packet *packet)
     uint8_t digit;
     do{
         recv_len = mqtt_net_read(packet->fd->sockfd, (void *)&digit, 1);
-        printf("digit is %d\n", digit);
         if(recv_len == 1)
         {
             value += (digit & 0x7F) * multiplier;
@@ -288,6 +292,12 @@ void mqtt_packet_format(struct mqtt_packet *packet)
 
 int mqtt_parse_subtopices(struct mqtt_packet *packet)
 {
+    struct server_env *env = get_server_env();
+    if(!env)
+    {
+        printf("Error: could not get the env in subtopices\n");
+        return MQTT_ERR_NULL;
+    }
     while(packet->pos < packet->remain_length)
     {
         uint8_t *p_topic;
@@ -299,12 +309,20 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
         struct mqtt_string ms_topic;
         mqtt_string_alloc(&ms_topic, p_topic, strlen(p_topic));
 
+        printf("Info: ms_topic body [%s]\n", ms_topic.body); 
         struct mqtt_topic *topic = mqtt_topic_get(ms_topic);
         if(!topic)
         {
-            printf("Info: topic [%s] is not existed!\n");    
+            printf("Info: topic is not existed!\n", ms_topic.body);    
         }else{
-            printf("Info: topic [%s] is existed.\n"); 
+             
+            if(mqtt_topic_sub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)
+            {
+                printf("Error: topic sub failure\n");
+                return MQTT_ERR_SUB;
+            }
+            printf("Info: topic [%s] is existed.\n", ms_topic.body); 
+            
         }
     }    
     return MQTT_ERR_SUCCESS;

@@ -9,4 +9,7 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code);
 int mqtt_handler_publish(struct mqtt_packet *packet);
 void shut_dead_conn(int sockfd);
 int mqtt_handler_subscribe(struct mqtt_packet *packet);
+int mqtt_set_env(struct mqtt_packet *packet);
+int mqtt_handler_ping(struct mqtt_packet *packet);
+int mqtt_ping_resp(struct mqtt_packet *packet);
 #endif

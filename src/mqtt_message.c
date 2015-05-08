@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <assert.h>
 
 #include "mqtt_message.h"
@@ -33,7 +35,7 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     struct mqtt_hash_n *node = mqtt_hash_get(_topic_table, topic_name);
     if(!node)
     {
-        printf("Err: the topic is not existed\n");
+        printf("Err: the topic [%s] is not existed\n", topic_name.body);
         return NULL;
     }else{
         printf("Info: get the topic[%s] in mqtt_topic_get\n", topic_name.body);
@@ -120,14 +122,11 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
         topic->msg_bf_list.tail->next = msg_n;
         topic->msg_bf_list.tail = msg_n;
     }
-    if(topic->clients.next != NULL)
+    struct client_node *node = topic->clients_head;
+    while(node != NULL)
     {
-        struct client_node *node = topic->clients.next;
-        while(node != NULL)
-        {
-            mqtt_distribute_msg(node->pclient, msg_n);
-            node = node->next;
-        } 
+        mqtt_distribute_msg(node->pclient, msg_n);
+        node = node->next;
     }
      
     printf("Info: add msg [%s] to the topic [%s]\n", msg.body, topic->name.body);
@@ -190,4 +189,33 @@ uint8_t *mqtt_msg_id_gen()
     id[index] = '\0';
     return id;
 }
+
+int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag)
+{
+    struct mqtt_string s_client_id;
+    mqtt_string_alloc(&s_client_id, client_id, strlen(client_id));
+    struct client_in_hash *client = mqtt_get_client_s(s_client_id); 
+    if(!client)
+    {
+        printf("Error: could not find the client\n");
+        return -1;
+    } 
+    struct client_node *c_node = malloc(sizeof(struct client_node));
+    assert(c_node);
+    memset(c_node, '\0', sizeof(struct client_node));    
+    c_node->next = NULL;
+    c_node->pclient = client; 
+    c_node->qos = qosflag;
+
+    if(topic->clients_head == NULL || topic->clients_tail == NULL)
+    {
+        topic->clients_head = topic->clients_tail = c_node;
+    }else{
+        topic->clients_tail->next = c_node;
+        topic->clients_tail = c_node; 
+    }
+    return 0;
+}
+
+
 

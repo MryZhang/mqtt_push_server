@@ -20,6 +20,7 @@
 #include "mqtt_handler.h"
 #include "server.h"
 #include "hiredis.h"
+#include "redis_com.h"
 
 static int pipefd[2];
 static redisContext *redis_context;
@@ -67,79 +68,72 @@ void* conn_handler(void *arg)
     int epollfd = ((struct fds *) arg)->epollfd;
     int readed = 0;
     printf("start new thread to receive data on fd: %d\n", sockfd);
-    struct mqtt_packet *packet;
-    packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
     
-    uint8_t byte;
-    int ret;
-    int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
-    if( recv_len == 1)
-    {
-        packet->command = byte;
-        packet->fd = (struct fds*)arg;
-
-        switch(packet->command&0xF0)
-        {
-            case CONNECT:
-                printf("Info: got a connect request\n");
-                if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
-                {
-                    printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
-                    shut_dead_conn(packet->fd->sockfd);
-                }
-                break;        
-            case PUBLISH:
-                printf("Info: got a publish request\n");
-                if( (ret = mqtt_handler_publish(packet)) != MQTT_ERR_SUCCESS)
-                {
-                    printf("Error: publish handler errcode : %d\n", ret);
-                    shut_dead_conn(packet->fd->sockfd);
-                }
-                break;  
-            case SUBSCRIBE:
-                printf("Info: got a subscribe request\n");
-                if( (ret = mqtt_handler_subscribe(packet)) != MQTT_ERR_SUCCESS)
-                {
-                    printf("Error: subscribe handler errcode [%d]\n", ret);
-                    shut_dead_conn(packet->fd->sockfd);
-                }
-                break;
-            case PINGREQ:
-                break; 
-            default:
-                break;
-        }    
-    }else if(recv_len == 0)
-    {
-        shut_dead_conn(sockfd);
-    }else{
-        printf("Info: ret < 0\n");
-        if(errno == EAGAIN)
-        {
-            reset_oneshot(env, sockfd);
-            printf("Info: read later.\n");
-        }
-    }
     while(1)
     {
-        char buf[1024];
-        memset(buf, '\0', 1024);
-        int ret = recv(sockfd, buf, 1023, 0);
-        if(ret == 0)
+        struct mqtt_packet *packet;
+        packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
+        memset(packet, '\0', sizeof(struct mqtt_packet));
+        uint8_t byte;
+        int ret;
+        int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
+        if( recv_len == 1)
         {
-            close(sockfd);
-            printf("Info: foreiner closed the connection\n");
-            break;
-        }else if(ret < 0)
-        {
-            if(errno == EAGAIN)
+            packet->command = byte;
+            packet->fd = (struct fds*)arg;
+ 
+            switch(packet->command&0xF0)
             {
-                reset_oneshot(env, sockfd);
-                printf("Info: read later\n");
-                break;
-            }
+                case CONNECT:
+                    printf("Info: got a connect request\n");
+                    if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                        printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
+                        shut_dead_conn(packet->fd->sockfd);
+                    }
+                    break;        
+                case PUBLISH:
+                    printf("Info: got a publish request\n");
+                    if( (ret = mqtt_handler_publish(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                        printf("Error: publish handler errcode : %d\n", ret);
+                        shut_dead_conn(packet->fd->sockfd);
+                    }
+                    break;  
+                case SUBSCRIBE:
+                    printf("Info: got a subscribe request\n");
+                    if( (ret = mqtt_handler_subscribe(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                        printf("Error: subscribe handler errcode [%d]\n", ret);
+                        shut_dead_conn(packet->fd->sockfd);
+                    }
+                    break;
+                case PINGREQ:
+                    printf("**Info: got a ping request\n");
+                    if( (ret = mqtt_handler_ping(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                        printf("Error: ping handler errcode [%d] \n", ret);
+                        shut_dead_conn(packet->fd->sockfd);
+                    }
+                    break; 
+                default:
+                    break;
+            }    
+        }else if(recv_len == 0)
+        {
+            printf("Info: forier has shutdown the connection\n");
+            shut_dead_conn(sockfd);
         }else{
-            printf("get content: %s\n", buf);
+            printf("Info: ret < 0\n");
+            if(errno == EAGAIN)
+            {   
+                reset_oneshot(env, sockfd);
+                printf("Info: read later.\n");
+                break;
+            }else{
+                perror("ret");
+            }
+            break;
         }
     }
     struct server_env *env = get_server_env();
@@ -231,6 +225,7 @@ void et(struct server_env *env, int number, int listenfd)
                 }
             }
             set_fd_in(env, sockfd);  
+            //TODO: maybe should free something here
         }
 
     }
@@ -318,6 +313,8 @@ int main(int argc, char **argv)
     addfd(env, pipefd[0], 0);
 
     alarm(TIMESLOT);
+
+    clear_id_set();
     while(1)
     {
         ret = epoll_wait(env->epollfd, env->events, MAX_EVENT_NUM, 100);

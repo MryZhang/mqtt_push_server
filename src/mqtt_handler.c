@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "mqtt_handler.h"
 #include "mqtt_packet.h"
@@ -17,6 +18,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
     int ret, i;
     int sockfd = packet->fd->sockfd;
     uint8_t byte;
+    mqtt_packet_format(packet);
     if((ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
     {
         return ret;
@@ -57,7 +59,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
         mqtt_conn_ack(packet, 2);
         return MQTT_ERR_ID_TOO_LONG;
     }
-
+     
     printf("packet->identifier : %s\n", packet->identifier);
     if(!had_client_id(packet->identifier))
     {
@@ -68,6 +70,8 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
     }else{
         return MQTT_ERR_ID_REJECTED;
     }
+
+    mqtt_set_env(packet); // set client_data client_id
 
     if(packet->conn_f.f_will)
     {
@@ -112,7 +116,6 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
     }
     ack_packet->fd = packet->fd;
     ack_packet->remain_length = 2;
-    printf("remain length in conn ack: %d\n", ack_packet->remain_length);
     ack_packet->command = 0x20;
     ack_packet->dupflag = 0x00;
     ack_packet->qosflag = 0x00;
@@ -220,7 +223,19 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
     int ret, i;
     int sockfd = packet->fd->sockfd;
     uint8_t byte;
-
+    struct server_env *env = get_server_env();
+    if(!env)
+    {
+        printf("Error: could not get the server_env handler\n");
+        return MQTT_ERR_NULL;
+    } 
+    
+    if(!(env->clients[sockfd].client_id))
+    {
+        printf("Error: should send conn packet first\n");
+        return MQTT_ERR_PROTOCOL;
+    }
+    
     if( (ret = mqtt_parse_flags(packet)) != MQTT_ERR_SUCCESS)
     {
         printf("Error: parse flags.\n");
@@ -232,7 +247,7 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
         printf("Error: remain length.\n");
         return ret;
     }
-    
+    mqtt_packet_format(packet); 
     if( (ret = mqtt_read_payload(packet)) != MQTT_ERR_SUCCESS)
     {
         printf("Error: payload\n");
@@ -240,6 +255,7 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
     }
     if(packet->qosflag == 0x01)
     {
+        mqtt_packet_format(packet);
         if( (ret = mqtt_payload_bytes(packet, packet->msg.id, 2))
             != MQTT_ERR_SUCCESS)
         {
@@ -255,4 +271,61 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
     } 
 
     return MQTT_ERR_SUCCESS;    
+}
+
+int mqtt_set_env(struct mqtt_packet *packet)
+{
+    struct server_env *env = get_server_env();
+    if(!env)
+    {
+        printf("Error: could not get the env in set env\n");
+        return MQTT_ERR_NULL;
+    }
+    
+    struct client_data *client = &(env->clients[packet->fd->sockfd]);
+    client->client_id = malloc(sizeof(uint8_t)* strlen(packet->identifier));
+    assert(client->client_id);
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_handler_ping(struct mqtt_packet *packet)
+{
+    int ret;
+    if( (ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
+    {
+       return ret; 
+    }  
+    struct server_env *env = get_server_env();
+    if(!env)
+    {
+        printf("Error: server env null pointer in handler ping\n");
+        return MQTT_ERR_NULL;
+    }
+    update_conn_timer(packet->fd->sockfd);
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_ping_resp(struct mqtt_packet *packet)
+{
+    printf("Info: begin to send a ping response\n");
+    int ret;
+    struct mqtt_packet *ack_packet;
+    ack_packet = malloc(sizeof(struct mqtt_packet));
+    memset(ack_packet, '\0', sizeof(struct mqtt_packet));
+    if(!ack_packet)
+    {
+        printf("Error: no mem in ping resp\n");
+        return MQTT_ERR_NOMEM;
+    } 
+    ack_packet->fd = packet->fd;
+    ack_packet->remain_length = 0;
+    ack_packet->command = 0xd0;
+    ret = mqtt_packet_alloc(ack_packet);
+    if(ret != MQTT_ERR_SUCCESS) return ret;
+
+    if( (ret == mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    return MQTT_ERR_SUCCESS;
 }

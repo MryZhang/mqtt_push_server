@@ -43,7 +43,7 @@ struct mqtt_packet
     struct mqtt_message msg;
     uint8_t *publish_content;
 };
-
+int mqtt_packet_init(struct mqtt_packet *packet);
 int mqtt_packet_alloc(struct mqtt_packet *packet);
 int mqtt_remain_length(struct mqtt_packet *packet);
 int mqtt_read_payload(struct mqtt_packet *packet);

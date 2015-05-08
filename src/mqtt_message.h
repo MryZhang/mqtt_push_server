@@ -21,7 +21,8 @@ struct msg_list
 struct mqtt_topic
 {
     struct mqtt_string name;
-    struct client_node clients;
+    struct client_node *clients_head;
+    struct client_node *clients_tail;
     struct msg_list msg_sd_list;
     struct msg_list msg_bf_list;
 };
@@ -42,4 +43,5 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg);
 struct msg_node *mqtt_msg_init(struct mqtt_string msg);
 struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg);
 uint8_t *mqtt_msg_id_gen();
+int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag);
 #endif

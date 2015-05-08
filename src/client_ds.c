@@ -22,18 +22,18 @@ struct mqtt_hash_t *get_client_table()
     return client_table;
     
 }
-struct mqtt_client_in_hash *mqtt_get_client_s(struct mqtt_string client_id)
+struct client_in_hash *mqtt_get_client_s(struct mqtt_string client_id)
 {
     struct mqtt_hash_t *hash_t = get_client_table();
     if(!hash_t) return NULL;
     return _mqtt_get_client_s(hash_t, client_id); 
 }
-struct mqtt_client_in_hash *_mqtt_get_client_s(struct mqtt_hash_t* hash_t, struct mqtt_string client_id)
+struct client_in_hash *_mqtt_get_client_s(struct mqtt_hash_t* hash_t, struct mqtt_string client_id)
 {
     struct mqtt_hash_n *hash_n = mqtt_hash_get(hash_t, client_id);
     if(hash_n != NULL)
     {
-       struct mqtt_client_in_hash *client_in_hash = (struct mqtt_client_in_hash *)(hash_n->data.body);
+       struct client_in_hash *client_in_hash = (struct client_in_hash *)(hash_n->data.body);
        return client_in_hash;
     } 
     return NULL;

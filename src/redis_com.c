@@ -78,6 +78,19 @@ void rm_client_id(uint8_t *client_id)
         }
     }
 }
+int clear_id_set()
+{
+    if(redisCtx || getCtx())
+    {
+        reply = redisCommand(redisCtx, "DEL %s", clientsetname);
+        if(!reply)
+        {
+            printf("Error: clear client set err\n");
+            return -1;
+        }
+    }
+    return 0;
+}
 /*
 int had_topic(uint8_t *topic)
 {

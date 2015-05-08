@@ -14,6 +14,7 @@ enum mqtt_msg_t {
     MQTT_ERR_REDIS = 5,
     MQTT_ERR_ID_REJECTED = 6,
     MQTT_ERR_NULL = 7,
+    MQTT_ERR_SUB = 8,
 };
 /* Get the context of the redis database */
 redisContext *getRedisContext();

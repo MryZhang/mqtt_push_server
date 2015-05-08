@@ -12,9 +12,11 @@ void mqtt_string_alloc(struct mqtt_string *string, uint8_t *str, int len)
     //string->len = strlen(str);  data struct strlen wrong 
     assert(len > 0);
     string->len = len;
-    //printf("Info: alloc len [%d]\n", string->len);
-    string->body = malloc(string->len * sizeof(uint8_t));
+    printf("Info: alloc len [%d]\n", string->len);
+    printf("Info: alloc content [%s]\n", str);
+    string->body = malloc((len + 1) * sizeof(uint8_t));
     assert(string->body);
+    memset(string->body, '\0', (len + 1));
     memcpy(string->body, str, string->len);
 }
 
