@@ -12,4 +12,7 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet);
 int mqtt_set_env(struct mqtt_packet *packet);
 int mqtt_handler_ping(struct mqtt_packet *packet);
 int mqtt_ping_resp(struct mqtt_packet *packet);
+int mqtt_unsubscribe_ack(struct mqtt_packet *packet);
+int mqtt_handler_unsubscribe(struct mqtt_packet *packet);
+int mqtt_handler_disconnect(struct mqtt_packet *packet);
 #endif

@@ -247,7 +247,6 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
         printf("Error: remain length.\n");
         return ret;
     }
-    mqtt_packet_format(packet); 
     if( (ret = mqtt_read_payload(packet)) != MQTT_ERR_SUCCESS)
     {
         printf("Error: payload\n");
@@ -326,6 +325,76 @@ int mqtt_ping_resp(struct mqtt_packet *packet)
     if( (ret == mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
     {
         return ret;
+    }
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_handler_disconnect(struct mqtt_packet *packet)
+{
+    int ret;
+    if( (ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }  
+    
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_handler_unsubscribe(struct mqtt_packet *packet)
+{
+    int ret;
+    if( (ret = mqtt_parse_flags(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    if( (ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+    if( packet->qosflag == 0x01 || packet->qosflag == 0x02)
+    {
+        if( (ret = mqtt_payload_bytes(packet, packet->msg.id, 2)) != MQTT_ERR_SUCCESS)
+        {
+            return ret;
+        }
+    }
+    
+    if( (ret = mqtt_parse_unsubtopices(packet)) != MQTT_ERR_SUCCESS)
+    {
+        printf("Error: unsub errcode [%d] \n");
+        return ret;
+    }
+    if( packet->qosflag == 0x01)
+    {
+        return mqtt_unsubscribe_ack(packet);
+    }
+    return MQTT_ERR_SUCCESS;
+}
+
+int mqtt_unsubscribe_ack(struct mqtt_packet *packet)
+{
+    printf("Info: begin to send unsub ack\n");
+    assert(packet);
+    struct mqtt_packet ack_packet = malloc(sizeof(struct mqtt_packet));
+    assert(ack_packet);
+    memset(ack_packet, '\0', sizeof(struct mqtt_packet));
+    ack_packet->fd = packet->fd;
+    ack_packet->command = 0xb0;
+    ack_packet->remain_length = 2;
+    
+    int ret = mqtt_packet_alloc(ack_packet);
+    if( ret != MQTT_ERR_SUCCESS)
+    {
+        return ret;
+    }
+
+    ack_packet->payload[packet->pos++] = packet->msg.id[0];
+    ack_packet->payload[packet->pos++] = packet->msg.id[1];
+
+    if( (ret = mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
+    {
+         printf("Error: send payload in unsub\n");
+        return ret; 
     }
     return MQTT_ERR_SUCCESS;
 }

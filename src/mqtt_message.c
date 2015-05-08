@@ -217,5 +217,55 @@ int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag
     return 0;
 }
 
+int mqtt_topic_unsub(struct mqtt_topic *topic, uint8_t* client_id)
+{
+    struct mqtt_string s_client_id;
+    mqtt_string_alloc(&s_client_id, client_id, strlen(client_id));
+    struct client_in_hash *client = mqtt_get_client_s(s_client_id);
+    if(!client)
+    {
+        printf("Error: could not find the client\n");
+        return -1;
+    }    
 
+    struct client_node *c_node;
+
+    if(topic->clients_head == NULL && topic->clients_tail == NULL)
+    {
+        printf("Info: no topic to unsub\n");
+        return 0;
+    }else{
+        c_node = topic->clients_head;
+        int ret = 0;
+        if(!mqtt_string_cmp(c_node->pclient->client_id, s_client_id))
+        {
+            topic->clients_head = c_node->next;
+            c_node = NULL;
+            return 0;
+        }else{
+            while(c_node->next != NULL)
+            {
+                struct client_in_hash *h_node = c_node->next->pclient;
+                if(!mqtt_string_cmp(h_node->client_id, s_client_id))
+                {
+                    ret = 1;
+                    break;
+                }else{
+                    c_node = c_node->next
+                }
+            }
+            if(ret == 1)
+            {
+                struct client_node tmp = c_node->next;
+                c_node->next = c_node->next->next;            
+                tmp = null;
+                printf("Info: remove the client in the specific topic\n");
+            }else{
+                printf("Info: could not find the client in the specific topic\n");
+            } 
+            return 0;
+        }
+    }
+    return 0;
+}
 

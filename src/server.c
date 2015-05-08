@@ -108,6 +108,14 @@ void* conn_handler(void *arg)
                         shut_dead_conn(packet->fd->sockfd);
                     }
                     break;
+                case UNSUBSCRIBE:
+                    printf("Info: got a unsubscribe request\n");
+                    if( (ret = mqtt_handler_unsubscribe(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                       printf("Error: unsubscribe handler errcode [%d]\n", ret);
+                       shut_dead_conn(packet->fd->sockfd); 
+                    }
+                    break; 
                 case PINGREQ:
                     printf("**Info: got a ping request\n");
                     if( (ret = mqtt_handler_ping(packet)) != MQTT_ERR_SUCCESS)
@@ -116,6 +124,14 @@ void* conn_handler(void *arg)
                         shut_dead_conn(packet->fd->sockfd);
                     }
                     break; 
+                case DISCONNECT:
+                    printf("**Info: got a disconnect request\n");
+                    if( (ret = mqtt_handler_disconnect(packet)) != MQTT_ERR_SUCCESS)
+                    {
+                        printf("Error: disconnect handler errcode [%d] \n", ret);   
+                    } 
+                    shut_dead_conn(packet->fd->sockfd);
+                    break;
                 default:
                     break;
             }    

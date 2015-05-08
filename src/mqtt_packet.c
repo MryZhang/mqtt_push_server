@@ -327,3 +327,41 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
     }    
     return MQTT_ERR_SUCCESS;
 }
+
+int mqtt_parse_unsubtopices(struct mqtt_packet *packet)
+{
+    struct server_env *env = get_server_env();
+    if(!env)
+    {
+        printf("Error: could not get the env in subtopices\n");
+        return MQTT_ERR_NULL;
+    }
+    while(packet->pos < packet->remain_length)
+    {
+        uint8_t *p_topic;
+        mqtt_str(packet, &p_topic); 
+        uint8_t qos;
+        mqtt_payload_byte(packet, &qos);
+        printf("Info: topic name [%s]\n", p_topic);
+        printf("Info: topic qos [%d]\n", qos);
+        struct mqtt_string ms_topic;
+        mqtt_string_alloc(&ms_topic, p_topic, strlen(p_topic));
+
+        printf("Info: ms_topic body [%s]\n", ms_topic.body); 
+        struct mqtt_topic *topic = mqtt_topic_get(ms_topic);
+        if(!topic)
+        {
+            printf("Info: topic is not existed!\n", ms_topic.body);    
+        }else{
+             
+            if(mqtt_topic_unsub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)
+            {
+                printf("Error: topic sub failure\n");
+                return MQTT_ERR_SUB;
+            }
+            printf("Info: topic [%s] is existed.\n", ms_topic.body); 
+            
+        }
+    }    
+    return MQTT_ERR_SUCCESS;
+}

@@ -61,4 +61,6 @@ void mqtt_console_payload(struct mqtt_packet *packet);
 int mqtt_parse_flags(struct mqtt_packet *packet);
 void mqtt_packet_format(struct mqtt_packet *packet);
 int mqtt_publish_content(struct mqtt_packet *packet);
+int mqtt_parse_subtopices(struct mqtt_packet *packet);
+int mqtt_parse_unsubtopices(struct mqtt_packet *packet);
 #endif
