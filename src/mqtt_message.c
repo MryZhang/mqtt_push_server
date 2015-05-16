@@ -10,17 +10,12 @@ static struct mqtt_hash_t *topic_table;
 
 struct mqtt_hash_t *get_topic_table()
 {
-   // printf("a\n");
     if(!topic_table)
     {
-       // printf("b\n");
         struct server_env *env = get_server_env();
-    //printf("c\n");
         if(!env) return NULL;
-    //printf("d\n");
         return env->topic_table;
     }
-    //printf("e\n");
     return topic_table;
 
 } 
@@ -29,16 +24,13 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     struct mqtt_hash_t *_topic_table = get_topic_table();
     if(!_topic_table)
     {
-        printf("Err: topic_table is NULL POINTER in mqtt_topic_get\n");
         return NULL;
     }
     struct mqtt_hash_n *node = mqtt_hash_get(_topic_table, topic_name);
     if(!node)
     {
-        printf("Err: the topic [%s] is not existed\n", topic_name.body);
         return NULL;
     }else{
-        printf("Info: get the topic[%s] in mqtt_topic_get\n", topic_name.body);
         return (struct mqtt_topic *)node->data.body;
     }
 
@@ -56,21 +48,16 @@ struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name)
 
 int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
 {
-    printf("Info:  add the topic [%s]\n", topic_name.body);
     struct mqtt_hash_t *_topic_table = get_topic_table();
-    //printf("1\n");
     if(!_topic_table)
     {
         return -1;
     }else{
-        //printf("2\n");
         struct mqtt_topic *topic = mqtt_topic_get(topic_name);
         if(!topic)
         {
-            printf("Info: you can add the topic [%s]\n", topic_name.body);
             struct mqtt_topic *topic = mqtt_topic_init(topic_name);
             assert(topic);
-            printf("Info: topic name [%s] in mqtt_topic_add\n", topic->name.body);
             struct mqtt_string data;
             if(t != NULL)
             {
@@ -78,7 +65,6 @@ int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
             }
             mqtt_string_alloc(&data, (uint8_t *)topic, sizeof(struct mqtt_topic));
             struct mqtt_topic *tt = (struct mqtt_topic *) (data.body);
-            printf("Info: tt topic [%s]\n", tt->name.body);
             mqtt_hash_set(_topic_table, topic_name, data);
         }
         return 0;
@@ -93,7 +79,6 @@ int mqtt_topic_add_msg(struct mqtt_string topic_name, struct mqtt_string msg)
         int ret = mqtt_topic_add(topic_name, &topic);
         if(!ret)
         {
-            printf("func topic_add_msg add topic failure\n");
             exit(1);
         }
     }
@@ -111,7 +96,6 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
 {
     if(!topic)
     {
-        printf("Err: need a topic to add msg\n");
         return -1;
     } 
     struct msg_node *msg_n = mqtt_msg_init(msg);
@@ -129,7 +113,6 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
         node = node->next;
     }
      
-    printf("Info: add msg [%s] to the topic [%s]\n", msg.body, topic->name.body);
     return 0;
 }
 //distribute the message to the clients which subscribe the topic
@@ -197,7 +180,6 @@ int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag
     struct client_in_hash *client = mqtt_get_client_s(s_client_id); 
     if(!client)
     {
-        printf("Error: could not find the client\n");
         return -1;
     } 
     struct client_node *c_node = malloc(sizeof(struct client_node));
@@ -224,7 +206,6 @@ int mqtt_topic_unsub(struct mqtt_topic *topic, uint8_t* client_id)
     struct client_in_hash *client = mqtt_get_client_s(s_client_id);
     if(!client)
     {
-        printf("Error: could not find the client\n");
         return -1;
     }    
 
@@ -232,7 +213,6 @@ int mqtt_topic_unsub(struct mqtt_topic *topic, uint8_t* client_id)
 
     if(topic->clients_head == NULL && topic->clients_tail == NULL)
     {
-        printf("Info: no topic to unsub\n");
         return 0;
     }else{
         c_node = topic->clients_head;
@@ -251,17 +231,15 @@ int mqtt_topic_unsub(struct mqtt_topic *topic, uint8_t* client_id)
                     ret = 1;
                     break;
                 }else{
-                    c_node = c_node->next
+                    c_node = c_node->next;
                 }
             }
             if(ret == 1)
             {
-                struct client_node tmp = c_node->next;
+                struct client_node *tmp = c_node->next;
                 c_node->next = c_node->next->next;            
-                tmp = null;
-                printf("Info: remove the client in the specific topic\n");
+                tmp = NULL;
             }else{
-                printf("Info: could not find the client in the specific topic\n");
             } 
             return 0;
         }

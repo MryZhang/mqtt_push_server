@@ -1,6 +1,6 @@
 object = net.o util.o mqtt_packet.o mqtt_handler.o \
 		 command_send.o server.o mqtt_timer.o redis_com.o \
-		 mqtt_hash.o mqtt_string.o client_ds.o mqtt_message.o
+		 mqtt_hash.o mqtt_string.o client_ds.o mqtt_message.o log.o
 gcc = gcc
 CFLAG = -c
 
@@ -9,6 +9,8 @@ INCLUDEPATH = -I /home/aside99/Documents/hiredis-master/
 
 all : $(object)
 	$(gcc) $(object) -o server -lpthread -lhiredis
+log.o : log.h log.c
+	$(gcc) $(CFLAG) ./src/log.c
 net.o : net.h net.c
 	$(gcc) $(CFLAG) ./src/net.c $(INCLUDEPATH)
 util.o : util.h util.c

@@ -113,7 +113,6 @@ void timer_tick(struct util_timer_list *list)
         {
             break;
         }
-        printf("Event: a timer is expired.\n");
         struct client_data *data;
         get_client_data(tmp, &data);
         assert(data);
@@ -131,9 +130,7 @@ void timer_tick(struct util_timer_list *list)
 
 void get_client_data(struct util_timer *timer, struct client_data **data)
 {
-    printf("func : get_client_data timer address 0x%x\n", timer);
     *data = (struct client_data *) (timer); 
-    printf("func : get_client_data client_data address 0x%x\n", *data);
 }
 
 int inc_timer(struct util_timer_list *list, struct util_timer *timer)

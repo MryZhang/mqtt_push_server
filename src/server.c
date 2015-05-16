@@ -71,6 +71,7 @@ void* conn_handler(void *arg)
     
     while(1)
     {
+        printf("Info: another packet\n");
         struct mqtt_packet *packet;
         packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
         memset(packet, '\0', sizeof(struct mqtt_packet));
@@ -79,6 +80,7 @@ void* conn_handler(void *arg)
         int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
         if( recv_len == 1)
         {
+            printf("Info: recv_len [%d]\n", recv_len);
             packet->command = byte;
             packet->fd = (struct fds*)arg;
  
@@ -135,10 +137,12 @@ void* conn_handler(void *arg)
                 default:
                     break;
             }    
+            
         }else if(recv_len == 0)
         {
             printf("Info: forier has shutdown the connection\n");
             shut_dead_conn(sockfd);
+            break;
         }else{
             printf("Info: ret < 0\n");
             if(errno == EAGAIN)
@@ -148,13 +152,12 @@ void* conn_handler(void *arg)
                 break;
             }else{
                 perror("ret");
+                shut_dead_conn(sockfd);
+                break;
             }
-            break;
         }
     }
-    struct server_env *env = get_server_env();
-    assert(env != NULL);
-    reset_oneshot(env, sockfd);
+    printf("Info: end thread receiving data on fd %d\n", sockfd);
 }
 
 void et(struct server_env *env, int number, int listenfd)
@@ -175,7 +178,7 @@ void et(struct server_env *env, int number, int listenfd)
 
             time_t cur = time(NULL);
             // the expire time is 15s
-            env->clients[connfd].timer.expire = cur + 15*TIMESLOT;
+            env->clients[connfd].timer.expire = cur + 20*TIMESLOT;
             env->clients[connfd].dead_clean = shut_dead_conn;
             //printf("Info: client address [0x%x\n]", &(env->clients[connfd]));
             //printf("timer address: 0x%x\n", &(env->clients[connfd].timer));
@@ -212,7 +215,7 @@ void et(struct server_env *env, int number, int listenfd)
             }
         }else if (env->events[i].events & EPOLLIN)
         {
-            printf("EPOLLIN=================\n");
+            printf("Info: EPOLLIN EVENT on sockfd [%d]\n", sockfd);
             pthread_t thread;
             struct fds fds_arg;
             fds_arg.epollfd = env->epollfd;
@@ -221,9 +224,10 @@ void et(struct server_env *env, int number, int listenfd)
         }
         else if(env->events[i].events & EPOLLOUT)
         {
-            printf("EPOLLOUT===============\n");
             struct mqtt_epoll_data *fd_data = (struct mqtt_epoll_data*) env->events[i].data.ptr;
+            printf("Info: mqtt_epoll_data sockfd [%d]\n", fd_data->fd);
             uint32_t to_process = fd_data->len;
+            printf("Info: [%d] bytes to send\n", to_process);
             int sended_len = 0; 
             int send_ret = 0;
             while(to_process > 0)
@@ -248,8 +252,8 @@ void et(struct server_env *env, int number, int listenfd)
 }
 int main(int argc, char **argv)
 {
-    const char *ip = "127.0.0.1";
-    const int port = 3310;
+    const char *ip = "0.0.0.0";
+    const int port = 13310;
 
     int ret = 0;
     struct sockaddr_in address;
@@ -331,6 +335,8 @@ int main(int argc, char **argv)
     alarm(TIMESLOT);
 
     clear_id_set();
+
+    printf("MQTT Push Server is running...\n");
     while(1)
     {
         ret = epoll_wait(env->epollfd, env->events, MAX_EVENT_NUM, 100);

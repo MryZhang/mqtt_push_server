@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "redis_com.h"
 #include "hiredis.h"
 #include "server.h"
 #include "mqtt_message.h"
+#include "log.h"
 
 const char *clientsetname="clientIDs";
 const char *topic_hash = "topic"; 
@@ -42,6 +44,30 @@ int add_client_id(uint8_t *client_id)
     return MQTT_ERR_REDIS;
 }
 
+int check_auth(uint8_t *username, uint8_t *password)
+{
+    assert(username != NULL && password != NULL);
+    char *auth = "auth";
+    if(redisCtx || getCtx())
+    {
+        LOG_PRINT("username [%s]", username);
+
+        reply = redisCommand(redisCtx, "GET %s", username);
+        if(!reply)
+        {
+            LOG_PRINT("redisError %s", redisCtx->err);        
+            return -1;
+        }
+        if(reply->type != REDIS_REPLY_NIL)
+        {
+            LOG_PRINT("password in redis [%s]\n", reply->str);
+            return 0;
+        }else{
+            return -1;
+        }                
+    }
+}
+
 int had_client_id(uint8_t *client_id)
 {
     if(redisCtx || getCtx())
@@ -49,7 +75,6 @@ int had_client_id(uint8_t *client_id)
         reply = redisCommand(redisCtx, "SISMEMBER %s %s", clientsetname, client_id);
         if(!reply)
         {
-            printf("Error when check client_id %s\n", client_id);
             printf("Error Message %s\n", redisCtx->err);
             exit(1);
         }
@@ -62,7 +87,6 @@ int had_client_id(uint8_t *client_id)
         return 1;
     }   
     
-    printf("Can't connect with Redis Server\n");
     exit(1);
     return 1;
 }
