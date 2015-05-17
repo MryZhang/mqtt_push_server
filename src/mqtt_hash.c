@@ -20,7 +20,7 @@ int mqtt_hash_init(struct mqtt_hash_t **hash_t)
     return 0;
 }
 
-int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, struct mqtt_string data)
+int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, void *data)
 {
     int i, index = 0;
     index = _mqtt_hash_calinx(key);
@@ -32,7 +32,7 @@ int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, struct mqt
 
         hash_t->iterms[index] = node;
         mqtt_string_copy(&key, &(node->key));
-        mqtt_string_copy(&data, &(node->data));
+        node->data = data;
         return 0;
     }
     struct mqtt_hash_n *tmp;
@@ -44,20 +44,20 @@ int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, struct mqt
 
     if(mqtt_string_cmp(tmp->key, key) == 0)
     {
-        mqtt_string_copy(&key, &(tmp->key));
+        tmp->data = data;
     }else{
         struct mqtt_hash_n *node = malloc(sizeof(struct mqtt_hash_n));
         assert(node);
 
         mqtt_string_copy(&key, &(node->key));
-        mqtt_string_copy(&data, &(node->data));
+        node->data = data;
         tmp->next = node;
         node->next = NULL;
     }
     return 0;
 }
 
-struct mqtt_hash_n * mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_string key)
+void* mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_string key)
 {
     int index;
     index = _mqtt_hash_calinx(key);
@@ -71,7 +71,7 @@ struct mqtt_hash_n * mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_strin
         struct mqtt_hash_n *ret;
         ret = tmp;
         hash_t->iterms[index] = tmp->next;
-        return ret;
+        return ret->data;
     }
     while(tmp->next != NULL && mqtt_string_cmp(tmp->next->key, key))
     {
@@ -85,7 +85,7 @@ struct mqtt_hash_n * mqtt_hash_del(struct mqtt_hash_t *hash_t, struct mqtt_strin
         struct mqtt_hash_n *ret;
         ret = tmp->next;
         tmp->next = ret->next;
-        return ret;
+        return ret->data;
     }
 }
 
@@ -101,7 +101,7 @@ int _mqtt_hash_calinx(struct mqtt_string key)
     return index;
 }
 
-struct mqtt_hash_n *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key)
+void *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key)
 {
     if(!hash_t)
     {
@@ -113,5 +113,9 @@ struct mqtt_hash_n *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string
     {
         node = node->next;
     }
-    return node;
+    if(node == NULL)
+    {
+        return NULL;
+    }
+    return node->data;
 }

@@ -7,16 +7,18 @@
 
 struct msg_node
 {
-    struct mqtt_string body;
-    uint8_t *msg_id;
-    uint8_t f_retain;
-    uint8_t f_send;
+    struct mqtt_packet *packet;
     struct msg_node *next;
+};
+struct topic_msg
+{
+    struct mqtt_string message;
+    struct topic_msg *next;
 };
 struct msg_list
 {
-    struct msg_node *head;
-    struct msg_node *tail;
+    struct topic_msg *head;
+    struct topic_msg *tail;
 };
 struct mqtt_topic
 {
@@ -26,13 +28,6 @@ struct mqtt_topic
     struct msg_list msg_sd_list;
     struct msg_list msg_bf_list;
 };
-struct client_msg_node
-{
-    struct mqtt_string msg_id; 
-    int f_send;
-    struct mqtt_string *msg_string;
-    struct client_msg_node *next;
-};
 
 struct mqtt_hash_t *get_topic_table();
 struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name);
@@ -40,8 +35,8 @@ struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name);
 int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t);
 int mqtt_topic_add_msg(struct mqtt_string topic_namne, struct mqtt_string msg);
 int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg);
-struct msg_node *mqtt_msg_init(struct mqtt_string msg);
-struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg);
-uint8_t *mqtt_msg_id_gen();
+struct msg_node *mqtt_msg_init(struct mqtt_topic *topic, uint8_t *publish_content);
+struct topic_msg *mqtt_topic_msg_init(struct mqtt_string msg);
+int mqtt_msg_id_gen();
 int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag);
 #endif

@@ -2,10 +2,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string.h>
 
 #include "mqtt_message.h"
 #include "server.h"
 #include "util.h"
+#include "mqtt_packet.h"
+#include "mqtt3_protocal.h"
+#include "log.h"
 static struct mqtt_hash_t *topic_table;
 
 struct mqtt_hash_t *get_topic_table()
@@ -31,7 +35,7 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     {
         return NULL;
     }else{
-        return (struct mqtt_topic *)node->data.body;
+        return (struct mqtt_topic *)node->data;
     }
 
 }
@@ -58,14 +62,11 @@ int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
         {
             struct mqtt_topic *topic = mqtt_topic_init(topic_name);
             assert(topic);
-            struct mqtt_string data;
             if(t != NULL)
             {
                 *t = topic;
             }
-            mqtt_string_alloc(&data, (uint8_t *)topic, sizeof(struct mqtt_topic));
-            struct mqtt_topic *tt = (struct mqtt_topic *) (data.body);
-            mqtt_hash_set(_topic_table, topic_name, data);
+            mqtt_hash_set(_topic_table, topic_name, (void*)topic);
         }
         return 0;
     }
@@ -98,7 +99,7 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
     {
         return -1;
     } 
-    struct msg_node *msg_n = mqtt_msg_init(msg);
+    struct topic_msg *msg_n = mqtt_topic_msg_init(msg);
     if(topic->msg_bf_list.head == NULL)
     {
        topic->msg_bf_list.head = topic->msg_bf_list.tail =  msg_n;
@@ -109,68 +110,68 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
     struct client_node *node = topic->clients_head;
     while(node != NULL)
     {
-        mqtt_distribute_msg(node->pclient, msg_n);
+        mqtt_distribute_msg(node->pclient, topic, msg_n);
         node = node->next;
     }
      
     return 0;
 }
-//distribute the message to the clients which subscribe the topic
-int mqtt_distribute_msg(struct client_in_hash *client_n, struct msg_node *msg_n)
+struct topic_msg * mqtt_topic_msg_init(struct mqtt_string msg)
 {
-    if(!client_n || !msg_n) return -1;
-    //copy the message
-    struct client_msg_node *cnode = mqtt_client_msg_init(msg_n->body);
-    assert(cnode); 
-    if(client_n->head_nsend == NULL)  
+    struct topic_msg *t_msg = malloc(sizeof(struct topic_msg));
+    assert(t_msg != NULL);
+    memset(t_msg, '\0', sizeof(struct topic_msg));
+    mqtt_string_copy(&(t_msg->message), &msg);
+    t_msg->next = NULL;
+    return t_msg;
+}
+//distribute the message to the clients which subscribe the topic
+int mqtt_distribute_msg(struct client_in_hash *client_n, struct mqtt_topic *topic, struct topic_msg *msg_n)
+{
+    assert(client_n != NULL && msg_n != NULL);
+    struct msg_node *p_msg_node = mqtt_msg_init(topic, msg_n->message.body);
+    if(client_n->head_nsend == NULL)
     {
-        client_n->head_nsend = client_n->tail_nsend = cnode;    
+        client_n->head_nsend = client_n->tail_nsend = p_msg_node;
+        return 0;
     }else{
-        cnode->next = client_n->head_nsend;
-        client_n->head_nsend = cnode;
+        client_n->tail_nsend->next = p_msg_node;
+        client_n->tail_nsend = p_msg_node;
+    }
+    if(client_n->mutex == 1 && client_n->sockfd > 0)
+    {
+        client_n->mutex = 0;
+        mqtt_send_client_msg(client_n->sockfd, p_msg_node->packet);
+        client_n->mutex = 1;
     }
     return 0;
 }
 
-struct msg_node *mqtt_msg_init(struct mqtt_string msg)
+struct msg_node *mqtt_msg_init(struct mqtt_topic *topic, uint8_t *publish_content)
 {
-    struct msg_node *msg_n = malloc(sizeof(struct msg_node));
-    assert(msg_n);
-    mqtt_string_copy(&msg, &(msg_n->body));
-    msg_n->msg_id = mqtt_msg_id_gen();
-    return msg_n;     
+    struct msg_node *client_node = malloc(sizeof(struct msg_node));
+    assert(client_node);
+    memset(client_node, '\0', sizeof(struct msg_node));
+    struct mqtt_packet *packet = malloc(sizeof(struct mqtt_packet));
+    assert(packet);
+    memset(packet, '\0', sizeof(struct mqtt_packet));
+    packet->command = PUBLISH;
+    packet->topic = topic->name.body;
+    packet->qosflag = 0;
+    packet->dupflag = 0;
+    packet->retainflag = 0;   
+    packet->publish_content = publish_content;
+    client_node->packet = packet;
+    client_node->next = NULL;
+    return client_node;
 }
 
-struct client_msg_node *mqtt_client_msg_init(struct mqtt_string msg)
+static int msg_id = 0;
+
+int mqtt_msg_id_gen()
 {
-    struct client_msg_node *node = malloc(sizeof(struct client_msg_node));
-    mqtt_string_alloc(&(node->msg_id), msg.body, msg.len);
-    node->f_send = 0;
-    node->next = NULL;
-    return node;
-}
-uint8_t *mqtt_msg_id_gen()
-{
-    int index = 0;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    uint8_t *id = malloc(sizeof(uint8_t) *17); 
-    int tv_sec = tv.tv_sec;
-    while(tv_sec > 0)
-    {
-        int byte = tv_sec % 10;
-        id[index++] = byte;
-        tv_sec /= 10;
-    }
-    long tv_usec = tv.tv_usec;
-    while(index < 16)
-    {
-        int byte = tv_usec % 10;
-        id[index++] = byte;
-        tv_usec /= 10;
-    }
-    id[index] = '\0';
-    return id;
+    msg_id = msg_id % 65535;
+    return msg_id++;
 }
 
 int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag)
@@ -196,6 +197,7 @@ int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag
         topic->clients_tail->next = c_node;
         topic->clients_tail = c_node; 
     }
+    LOG_PRINT("client [%s] has subscribed the topic [%s]", client_id, topic->name.body);
     return 0;
 }
 

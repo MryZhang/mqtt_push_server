@@ -11,6 +11,7 @@
 #include "mqtt_packet.h"
 #include "mqtt_message.h"
 #include "net.h"
+#include "log.h"
 
 int mqtt_packet_init(struct mqtt_packet *packet)// not used
 {
@@ -291,6 +292,8 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
     {
         return MQTT_ERR_NULL;
     }
+    uint8_t *client_id = env->clients[packet->fd->sockfd].client_id;
+    assert(client_id != NULL);
     while(packet->pos < packet->remain_length)
     {
         uint8_t *p_topic;
@@ -301,15 +304,16 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
         mqtt_string_alloc(&ms_topic, p_topic, strlen(p_topic));
 
         struct mqtt_topic *topic = mqtt_topic_get(ms_topic);
+       
         if(!topic)
         {
-        }else{
-             
-            if(mqtt_topic_sub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)
-            {
-                return MQTT_ERR_SUB;
-            }
-            
+            LOG_PRINT("client [%s] subscribe the topic [%s] which is not exisit",  client_id, ms_topic.body); 
+            mqtt_topic_add(ms_topic, &topic); 
+        }
+        assert(topic != NULL);
+        if(mqtt_topic_sub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)
+        {
+            return MQTT_ERR_SUB;
         }
     }    
     return MQTT_ERR_SUCCESS;

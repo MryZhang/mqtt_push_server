@@ -21,6 +21,7 @@
 #include "server.h"
 #include "hiredis.h"
 #include "redis_com.h"
+#include "log.h"
 
 static int pipefd[2];
 static redisContext *redis_context;
@@ -225,9 +226,9 @@ void et(struct server_env *env, int number, int listenfd)
         else if(env->events[i].events & EPOLLOUT)
         {
             struct mqtt_epoll_data *fd_data = (struct mqtt_epoll_data*) env->events[i].data.ptr;
-            printf("Info: mqtt_epoll_data sockfd [%d]\n", fd_data->fd);
+            LOG_PRINT("Info: mqtt_epoll_data sockfd [%d]\n", fd_data->fd);
             uint32_t to_process = fd_data->len;
-            printf("Info: [%d] bytes to send\n", to_process);
+            LOG_PRINT("Info: [%d] bytes to send\n", to_process);
             int sended_len = 0; 
             int send_ret = 0;
             while(to_process > 0)
@@ -244,6 +245,7 @@ void et(struct server_env *env, int number, int listenfd)
                     break;   
                 }
             }
+            LOG_PRINT("End of send data on sockfd [%d]", fd_data->fd);
             set_fd_in(env, sockfd);  
             //TODO: maybe should free something here
         }

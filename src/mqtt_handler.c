@@ -153,12 +153,12 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
     if(ret_code == 0)
     {
         mqtt_set_env(packet); // set client_data clientid
-        mqtt_send_client_msg(packet); 
+        mqtt_send_client_msg(packet->fd->sockfd, packet->identifier); 
     }
     return MQTT_ERR_SUCCESS;
 }
 
-int mqtt_send_client_msg(uint8_t *client_id)
+int mqtt_send_client_msg(int sockfd, uint8_t *identifier)
 {
     struct server_env *env = get_server_env();
     if(env == NULL)
@@ -166,12 +166,64 @@ int mqtt_send_client_msg(uint8_t *client_id)
         return MQTT_ERR_NULL;
     }
     struct mqtt_string str_client_id;
-    mqtt_string_alloc(&str_client_id, client_id, strlen(client_id));
-    struct mqtt_hash_n *client_node = mqtt_hash_get(env->client_table, str_client_id);
-    if(client_node == null)
+    mqtt_string_alloc(&str_client_id, identifier, strlen(identifier));
+    struct client_in_hash *client_node = (struct client_in_hash *) mqtt_hash_get(env->client_table, str_client_id);
+    if(client_node == NULL)
     {
-
+        LOG_PRINT("Can not find the node in the hash table");
+        return -1;
     }
+    if(client_node->mutex == 0) return -1; 
+    client_node->mutex = 1;
+    struct msg_node *n = client_node->head_nsend;
+    while(n != NULL)
+    {
+        if(n->packet != NULL)
+        {
+            n->packet->remain_length = 0;
+            n->packet->remain_length += strlen(n->packet->topic) + 2;
+            if(n->packet->qosflag != 0)
+            {
+                n->packet->remain_length += 2;
+            }
+            n->packet->remain_length += strlen(n->packet->publish_content);
+            mqtt_packet_alloc(n->packet);
+            struct mqtt_packet *tmp_p = n->packet;
+            int top_len = strlen(tmp_p->topic);
+            if(top_len > 65535)
+            {
+                LOG_PRINT("Error: topic len is too long");
+                continue;
+            }
+            uint8_t msb = (top_len & 0xf0) >> 8;
+            uint8_t lsb = (top_len & 0x0f);
+            tmp_p->payload[tmp_p->pos++] = msb;
+            tmp_p->payload[tmp_p->pos++] = lsb;
+            int i = 0;
+            for(i = 0; i < top_len; i++)
+            {
+                tmp_p->payload[tmp_p->pos++] = tmp_p->topic[i];
+            }
+            if(tmp_p->qosflag != 0)
+            {
+                int id = mqtt_msg_id_gen();
+                tmp_p->payload[tmp_p->pos++] = (id & 0xf0) >> 8;
+                tmp_p->payload[tmp_p->pos++] = (id & 0x0f);
+            }
+            for(i = 0; i < strlen(tmp_p->publish_content); i++)
+            {
+                tmp_p->payload[tmp_p->pos++] = tmp_p->publish_content[i];
+            }
+            LOG_PRINT("Send a publish msg for client [%s]", tmp_p->identifier);
+            tmp_p->fd->sockfd = sockfd;
+            mqtt_read_payload(tmp_p);
+        }else{
+            LOG_PRINT("client [%s] has no msg_node", client_node->client_id.body);
+        }
+        n = n->next;
+    }   
+    client_node->head_nsend = client_node->tail_nsend = NULL; 
+    client_node->mutex = 1;
     return 0;
 }
 
@@ -276,7 +328,6 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
     }
     if(packet->qosflag == 0x01)
     {
-        mqtt_packet_format(packet);
         if( (ret = mqtt_payload_bytes(packet, packet->msg.id, 2))
             != MQTT_ERR_SUCCESS)
         {
@@ -301,9 +352,28 @@ int mqtt_set_env(struct mqtt_packet *packet)
     }
     
     struct client_data *client = &(env->clients[packet->fd->sockfd]);
+    assert(packet->identifier != NULL);
     client->client_id = malloc(sizeof(uint8_t)* strlen(packet->identifier));
     assert(client->client_id);
-    memcpy(client->client_id, packet->identifier, strlen(packet->identifier));  
+    memcpy(client->client_id, packet->identifier, sizeof(uint8_t) * strlen(packet->identifier));
+    struct mqtt_string *str_clientid = mqtt_string_init(packet->identifier);
+    struct client_in_hash *c_node = (struct client_in_hash *)mqtt_hash_get(env->client_table, *str_clientid);
+    if(c_node == NULL)
+    {
+        struct client_in_hash *c_node_tmp = malloc(sizeof(struct client_in_hash));
+        assert(c_node_tmp != NULL);
+        memset(c_node_tmp, '\0', sizeof(struct client_in_hash));
+        c_node_tmp->sockfd = packet->fd->sockfd;
+        mqtt_string_copy(str_clientid, &(c_node_tmp->client_id));
+        c_node_tmp->head_nsend = NULL;
+        c_node_tmp->tail_nsend = NULL;
+        mqtt_hash_set(env->client_table, *str_clientid, (void *) c_node_tmp);  
+        client->client_hash_node = c_node_tmp;
+        LOG_PRINT("Create a client_in_hash node to the client table");
+    }else{
+        client->client_hash_node = c_node; 
+        LOG_PRINT("Find the client_in_hash node in the client table");
+    }
     
     return MQTT_ERR_SUCCESS;
 }

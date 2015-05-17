@@ -33,7 +33,7 @@ struct client_in_hash *_mqtt_get_client_s(struct mqtt_hash_t* hash_t, struct mqt
     struct mqtt_hash_n *hash_n = mqtt_hash_get(hash_t, client_id);
     if(hash_n != NULL)
     {
-       struct client_in_hash *client_in_hash = (struct client_in_hash *)(hash_n->data.body);
+       struct client_in_hash *client_in_hash = (struct client_in_hash *)(hash_n->data);
        return client_in_hash;
     } 
     return NULL;
@@ -48,9 +48,7 @@ int _mqtt_add_client_s(struct mqtt_hash_t *hash_t, struct mqtt_string client_id,
 {
     struct client_in_hash *client_n = _mqtt_init_client_in_hash(client_id, sockfd);
     if(!client_n) return -1;
-    struct mqtt_string *str = mqtt_string_init((uint8_t *) client_n);
-    if(!str) return -1; 
-    return mqtt_hash_set(hash_t, client_id, *str);
+    return mqtt_hash_set(hash_t, client_id, (void*)client_n);
 }
 
 struct client_in_hash *_mqtt_init_client_in_hash(struct mqtt_string client_id, int sockfd)

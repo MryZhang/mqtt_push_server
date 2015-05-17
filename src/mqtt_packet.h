@@ -42,6 +42,7 @@ struct mqtt_packet
     uint8_t *password;
     struct mqtt_message msg;
     uint8_t *publish_content;
+    uint8_t *topic;
 };
 int mqtt_packet_init(struct mqtt_packet *packet);
 int mqtt_packet_alloc(struct mqtt_packet *packet);
