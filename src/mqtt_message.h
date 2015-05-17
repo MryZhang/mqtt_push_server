@@ -25,8 +25,8 @@ struct mqtt_topic
     struct mqtt_string name;
     struct client_node *clients_head;
     struct client_node *clients_tail;
-    struct msg_list msg_sd_list;
-    struct msg_list msg_bf_list;
+    struct msg_list *msg_sd_list;
+    struct msg_list *msg_bf_list;
 };
 
 struct mqtt_hash_t *get_topic_table();

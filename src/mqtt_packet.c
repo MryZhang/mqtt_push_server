@@ -311,10 +311,25 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
             mqtt_topic_add(ms_topic, &topic); 
         }
         assert(topic != NULL);
+        if(topic->msg_bf_list == NULL) LOG_PRINT("msg_bf_list is NULL");
+        topic = mqtt_topic_get(ms_topic);
+        assert(topic!=NULL);
+        if(topic->msg_bf_list == NULL) 
+            LOG_PRINT("msg_bf_list is NULL2");
+        else
+            LOG_PRINT("msg bf list is not null22");
+        
         if(mqtt_topic_sub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)
         {
             return MQTT_ERR_SUB;
         }
+        topic = mqtt_topic_get(ms_topic);
+        assert(topic!=NULL);
+        if(topic->msg_bf_list == NULL) 
+            LOG_PRINT("msg_bf_list is NULL3");
+        else
+            LOG_PRINT("msg_bf list is not nULL33");
+        
     }    
     return MQTT_ERR_SUCCESS;
 }
@@ -338,7 +353,8 @@ int mqtt_parse_unsubtopices(struct mqtt_packet *packet)
         struct mqtt_topic *topic = mqtt_topic_get(ms_topic);
         if(!topic)
         {
-            //printf("Info: topic is not existed!\n", ms_topic.body);    
+            LOG_PRINT("In function unsbutopices");
+            LOG_PRINT("Topic [%s] is not existed", topic->name.body);
         }else{
              
             if(mqtt_topic_unsub(topic, env->clients[packet->fd->sockfd].client_id, packet->qosflag) != 0)

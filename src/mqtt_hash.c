@@ -5,6 +5,7 @@
 
 #include "mqtt_string.h"
 #include "mqtt_hash.h"
+#include "log.h"
 
 
 int mqtt_hash_init(struct mqtt_hash_t **hash_t)
@@ -24,19 +25,26 @@ int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, void *data
 {
     int i, index = 0;
     index = _mqtt_hash_calinx(key);
+    LOG_PRINT("Hash key [%s], index [%d]", key.body, index);
+    LOG_PRINT("Hash: data address [%d]", data);
     struct mqtt_hash_n *hiterm;
+
     if(hash_t->iterms[index] == NULL)
     {
+        LOG_PRINT("Hash: iterms[%d] is NULL", index);
         struct mqtt_hash_n *node = malloc(sizeof(struct mqtt_hash_n));
         assert(node);
-
+        memset(node, '\0', sizeof(struct mqtt_hash_n));  
+        LOG_PRINT("Hash: data address [%d]", data);
         hash_t->iterms[index] = node;
         mqtt_string_copy(&key, &(node->key));
         node->data = data;
         return 0;
     }
+    LOG_PRINT("Hash: iterms[%d] is not NULL", index);
     struct mqtt_hash_n *tmp;
     tmp = hash_t->iterms[index];
+
     while(tmp->next != NULL && mqtt_string_cmp(tmp->key, key) != 0)
     {
         tmp = tmp->next;
@@ -48,7 +56,7 @@ int mqtt_hash_set(struct mqtt_hash_t *hash_t, struct mqtt_string key, void *data
     }else{
         struct mqtt_hash_n *node = malloc(sizeof(struct mqtt_hash_n));
         assert(node);
-
+        memset(node, '\0', sizeof(struct mqtt_hash_n));
         mqtt_string_copy(&key, &(node->key));
         node->data = data;
         tmp->next = node;
@@ -108,6 +116,8 @@ void *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key)
         return NULL;
     }
     int index = _mqtt_hash_calinx(key);
+
+    LOG_PRINT("Hash get :key [%s], index [%d]", key.body, index);
     struct mqtt_hash_n *node = hash_t->iterms[index];
     while(node && mqtt_string_cmp(node->key, key) == -1)
     {
@@ -117,5 +127,6 @@ void *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key)
     {
         return NULL;
     }
+    LOG_PRINT("Hash get :key [%d]", node->data);
     return node->data;
 }

@@ -68,11 +68,10 @@ void* conn_handler(void *arg)
     int sockfd = ((struct fds*) arg)->sockfd;
     int epollfd = ((struct fds *) arg)->epollfd;
     int readed = 0;
-    printf("start new thread to receive data on fd: %d\n", sockfd);
     
     while(1)
     {
-        printf("Info: another packet\n");
+        LOG_PRINT("Start receiving a new packet");
         struct mqtt_packet *packet;
         packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
         memset(packet, '\0', sizeof(struct mqtt_packet));
@@ -81,51 +80,57 @@ void* conn_handler(void *arg)
         int recv_len = mqtt_net_read(sockfd, (void *)&byte, 1);
         if( recv_len == 1)
         {
-            printf("Info: recv_len [%d]\n", recv_len);
             packet->command = byte;
             packet->fd = (struct fds*)arg;
  
             switch(packet->command&0xF0)
             {
                 case CONNECT:
-                    printf("Info: got a connect request\n");
+                    LOG_PRINT("Info: got a connect request\n");
+                    printf("Deal a CONNECT request\n");
                     if((ret = mqtt_handler_connect(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("mqtt_handler_connect failure. Errcode: %d\n", ret);
+                        LOG_PRINT("mqtt_handler_connect failure. Errcode: %d\n", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
                     break;        
                 case PUBLISH:
-                    printf("Info: got a publish request\n");
+                    LOG_PRINT("Info: got a publish request\n");
+                    printf("Deal a PUBLISH request\n");
                     if( (ret = mqtt_handler_publish(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("Error: publish handler errcode : %d\n", ret);
+                        LOG_PRINT("Error: publish handler errcode : %d\n", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
+                    LOG_PRINT("Info: dealed a PUBLISH request");
                     break;  
                 case SUBSCRIBE:
-                    printf("Info: got a subscribe request\n");
+                    LOG_PRINT("Info: got a subscribe request\n");
+                    printf("Start to deal SUBSCRIBE\n");
                     if( (ret = mqtt_handler_subscribe(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("Error: subscribe handler errcode [%d]\n", ret);
+                        LOG_PRINT("Error: subscribe handler errcode [%d]\n", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
+                    printf("Deal a SUBSCRIBE request\n");
                     break;
                 case UNSUBSCRIBE:
-                    printf("Info: got a unsubscribe request\n");
+                    LOG_PRINT("Info: got a unsubscribe request\n");
                     if( (ret = mqtt_handler_unsubscribe(packet)) != MQTT_ERR_SUCCESS)
                     {
-                       printf("Error: unsubscribe handler errcode [%d]\n", ret);
+                       LOG_PRINT("Error: unsubscribe handler errcode [%d]\n", ret);
                        shut_dead_conn(packet->fd->sockfd); 
                     }
                     break; 
                 case PINGREQ:
-                    printf("**Info: got a ping request\n");
+                    LOG_PRINT("**Info: got a ping request");
+                    printf("Start to deal a PING REQ\n");
                     if( (ret = mqtt_handler_ping(packet)) != MQTT_ERR_SUCCESS)
                     {
                         printf("Error: ping handler errcode [%d] \n", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
+                    printf("Deal a PING request\n");
                     break; 
                 case DISCONNECT:
                     printf("**Info: got a disconnect request\n");
@@ -134,6 +139,7 @@ void* conn_handler(void *arg)
                         printf("Error: disconnect handler errcode [%d] \n", ret);   
                     } 
                     shut_dead_conn(packet->fd->sockfd);
+                    printf("Deal a DISCONNECT request\n");
                     break;
                 default:
                     break;
@@ -141,24 +147,24 @@ void* conn_handler(void *arg)
             
         }else if(recv_len == 0)
         {
-            printf("Info: forier has shutdown the connection\n");
+            LOG_PRINT("Info: forier has shutdown the connection [%d]\n", sockfd);
             shut_dead_conn(sockfd);
+            printf("A client has shut down");
             break;
         }else{
-            printf("Info: ret < 0\n");
             if(errno == EAGAIN)
             {   
                 reset_oneshot(env, sockfd);
-                printf("Info: read later.\n");
                 break;
             }else{
                 perror("ret");
+                LOG_PRINT("In function conn_handler");
+                LOG_PRINT("recv ret < 0");
                 shut_dead_conn(sockfd);
                 break;
             }
         }
     }
-    printf("Info: end thread receiving data on fd %d\n", sockfd);
 }
 
 void et(struct server_env *env, int number, int listenfd)
@@ -169,21 +175,20 @@ void et(struct server_env *env, int number, int listenfd)
         int sockfd = env->events[i].data.fd;
         if( sockfd == listenfd )
         {
+            LOG_PRINT("A new client is coming...");
+            printf("A new connection is comming...\n");
             struct sockaddr_in client_address;
             socklen_t addr_len = sizeof(client_address);
             int connfd = accept(listenfd, (struct sockaddr*) &client_address, &addr_len);
-            printf("Info: a new client [%d] is arrived.\n", connfd);
+            LOG_PRINT("Conn fd [%d]", connfd);
             env->clients[connfd].address = client_address;
             env->clients[connfd].sockfd = connfd;
             addfd(env, connfd, 1);
-
             time_t cur = time(NULL);
-            // the expire time is 15s
             env->clients[connfd].timer.expire = cur + 20*TIMESLOT;
             env->clients[connfd].dead_clean = shut_dead_conn;
-            //printf("Info: client address [0x%x\n]", &(env->clients[connfd]));
-            //printf("timer address: 0x%x\n", &(env->clients[connfd].timer));
             assert(add_timer(env->timer_list, &(env->clients[connfd].timer))== MQTT_ERR_SUCCESS);
+            LOG_PRINT("Client [%d] init finish", connfd);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
             int sig;
@@ -216,7 +221,6 @@ void et(struct server_env *env, int number, int listenfd)
             }
         }else if (env->events[i].events & EPOLLIN)
         {
-            printf("Info: EPOLLIN EVENT on sockfd [%d]\n", sockfd);
             pthread_t thread;
             struct fds fds_arg;
             fds_arg.epollfd = env->epollfd;
@@ -322,7 +326,7 @@ int main(int argc, char **argv)
     }
     if(timer_init(env->timer_list) != MQTT_ERR_SUCCESS)
     {
-        printf("Timer list init failure\n");
+        LOG_PRINT("timer init failure");
         exit(1);
     }
     env->epollfd = epoll_create(5);

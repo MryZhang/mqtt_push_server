@@ -11,6 +11,5 @@ struct mqtt_string
 void mqtt_string_alloc(struct mqtt_string *string, uint8_t *str, int len); 
 int mqtt_string_copy(struct mqtt_string *src, struct mqtt_string *dst);
 int mqtt_string_cmp(struct mqtt_string str_foo, struct mqtt_string str_bar);
-struct mqtt_string *mqtt_string_init(const uint8_t *str);
 
 #endif

@@ -95,10 +95,10 @@ void rm_client_id(uint8_t *client_id)
 {
     if(redisCtx || getCtx())
     {
-        reply = redisCommand(redisCtx, "SADD %s %s", clientsetname, client_id);
+        reply = redisCommand(redisCtx, "SREM %s %s", clientsetname, client_id);
         if(!reply)
         {
-            printf("func rm_client_id : %s\n", redisCtx->err);
+            LOG_PRINT("Redis remove client_id [%s]", client_id);
         }
     }
 }

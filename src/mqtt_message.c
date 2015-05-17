@@ -30,12 +30,12 @@ struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name)
     {
         return NULL;
     }
-    struct mqtt_hash_n *node = mqtt_hash_get(_topic_table, topic_name);
-    if(!node)
+    void *node = mqtt_hash_get(_topic_table, topic_name);
+    if(node == NULL)
     {
         return NULL;
     }else{
-        return (struct mqtt_topic *)node->data;
+        return (struct mqtt_topic *)node;
     }
 
 }
@@ -43,10 +43,12 @@ struct mqtt_topic *mqtt_topic_init(struct mqtt_string topic_name)
 {
     struct mqtt_topic *topic = malloc(sizeof(struct mqtt_topic));
     assert(topic);
-    
+    printf("topic mem add %d\n", topic); 
+    memset(topic, '\0', sizeof(struct mqtt_topic)); 
     mqtt_string_copy(&topic_name, &(topic->name));
-    topic->msg_sd_list.head = topic->msg_sd_list.tail = NULL;
-    topic->msg_bf_list.head = topic->msg_bf_list.tail = NULL;
+    LOG_PRINT("In function mqtt_topic_init:");
+    LOG_PRINT("Init the topic with name [%s]", topic_name.body);
+    LOG_PRINT("and new topic name [%s]", topic->name.body);
     return topic;
 }
 
@@ -60,13 +62,13 @@ int mqtt_topic_add(struct mqtt_string topic_name, struct mqtt_topic **t)
         struct mqtt_topic *topic = mqtt_topic_get(topic_name);
         if(!topic)
         {
-            struct mqtt_topic *topic = mqtt_topic_init(topic_name);
-            assert(topic);
-            if(t != NULL)
-            {
-                *t = topic;
-            }
-            mqtt_hash_set(_topic_table, topic_name, (void*)topic);
+            LOG_PRINT("B");
+            struct mqtt_topic *topic_init = mqtt_topic_init(topic_name);
+            assert(topic_init);
+            *t =topic_init;
+            mqtt_hash_set(_topic_table, topic_name, (void*)topic_init);
+        }else{
+            LOG_PRINT("BBB");
         }
         return 0;
     }
@@ -99,21 +101,32 @@ int _mqtt_topic_add_msg(struct mqtt_topic *topic, struct mqtt_string msg)
     {
         return -1;
     } 
+    LOG_PRINT("A");
     struct topic_msg *msg_n = mqtt_topic_msg_init(msg);
-    if(topic->msg_bf_list.head == NULL)
+    assert(msg_n != NULL);
+    if(topic->msg_bf_list == NULL)
     {
-       topic->msg_bf_list.head = topic->msg_bf_list.tail =  msg_n;
+        LOG_PRINT("ccc");
+        topic->msg_bf_list = malloc(sizeof(struct msg_list));
+        assert(topic->msg_bf_list);
+        memset(topic->msg_bf_list, '\0', sizeof(struct msg_list));
+        topic->msg_bf_list->head = msg_n;
+        topic->msg_bf_list->tail = msg_n;
     }else{
-        topic->msg_bf_list.tail->next = msg_n;
-        topic->msg_bf_list.tail = msg_n;
+        LOG_PRINT("ddd");
+        topic->msg_bf_list->tail->next = msg_n;
+        topic->msg_bf_list->tail = msg_n; 
     }
+    LOG_PRINT("A");
     struct client_node *node = topic->clients_head;
+    LOG_PRINT("A");
     while(node != NULL)
     {
         mqtt_distribute_msg(node->pclient, topic, msg_n);
         node = node->next;
     }
      
+    LOG_PRINT("A");
     return 0;
 }
 struct topic_msg * mqtt_topic_msg_init(struct mqtt_string msg)
@@ -121,29 +134,40 @@ struct topic_msg * mqtt_topic_msg_init(struct mqtt_string msg)
     struct topic_msg *t_msg = malloc(sizeof(struct topic_msg));
     assert(t_msg != NULL);
     memset(t_msg, '\0', sizeof(struct topic_msg));
-    mqtt_string_copy(&(t_msg->message), &msg);
+    mqtt_string_copy(&msg, &(t_msg->message));
     t_msg->next = NULL;
     return t_msg;
 }
 //distribute the message to the clients which subscribe the topic
 int mqtt_distribute_msg(struct client_in_hash *client_n, struct mqtt_topic *topic, struct topic_msg *msg_n)
 {
+    LOG_PRINT("A");
     assert(client_n != NULL && msg_n != NULL);
+    LOG_PRINT("A");
     struct msg_node *p_msg_node = mqtt_msg_init(topic, msg_n->message.body);
+    LOG_PRINT("A");
     if(client_n->head_nsend == NULL)
     {
+    LOG_PRINT("A");
         client_n->head_nsend = client_n->tail_nsend = p_msg_node;
         return 0;
     }else{
+    LOG_PRINT("A");
         client_n->tail_nsend->next = p_msg_node;
         client_n->tail_nsend = p_msg_node;
     }
+    LOG_PRINT("A");
     if(client_n->mutex == 1 && client_n->sockfd > 0)
     {
+    LOG_PRINT("A");
         client_n->mutex = 0;
+    LOG_PRINT("A");
         mqtt_send_client_msg(client_n->sockfd, p_msg_node->packet);
+    LOG_PRINT("A");
         client_n->mutex = 1;
+    LOG_PRINT("A");
     }
+    LOG_PRINT("A");
     return 0;
 }
 

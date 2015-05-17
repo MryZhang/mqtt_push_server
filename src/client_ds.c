@@ -30,10 +30,10 @@ struct client_in_hash *mqtt_get_client_s(struct mqtt_string client_id)
 }
 struct client_in_hash *_mqtt_get_client_s(struct mqtt_hash_t* hash_t, struct mqtt_string client_id)
 {
-    struct mqtt_hash_n *hash_n = mqtt_hash_get(hash_t, client_id);
-    if(hash_n != NULL)
+    void  *data = mqtt_hash_get(hash_t, client_id);
+    if(data != NULL)
     {
-       struct client_in_hash *client_in_hash = (struct client_in_hash *)(hash_n->data);
+       struct client_in_hash *client_in_hash = (struct client_in_hash *)(data);
        return client_in_hash;
     } 
     return NULL;

@@ -74,13 +74,13 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
             return ret;
         }
     }else{
+        LOG_PRINT("ClientID [%s] is being used by another", packet->identifier);
         return MQTT_ERR_ID_REJECTED;
     }
 
 
     if(packet->conn_f.f_will)
     {
-        mqtt_console_payload(packet);
         if((ret = mqtt_str(packet, &packet->will_topic)) != MQTT_ERR_SUCCESS)
         {
             return ret;
@@ -127,6 +127,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
 
 int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
 {
+    LOG_PRINT("send a ret_code [%d] to client [%s]", ret_code, packet->identifier);
     int ret;     
     struct mqtt_packet *ack_packet;
     ack_packet = malloc(sizeof(struct mqtt_packet));
@@ -160,6 +161,7 @@ int mqtt_conn_ack(struct mqtt_packet *packet, int ret_code)
 
 int mqtt_send_client_msg(int sockfd, uint8_t *identifier)
 {
+    LOG_PRINT("send messages which in client_in_hash");
     struct server_env *env = get_server_env();
     if(env == NULL)
     {
@@ -229,11 +231,20 @@ int mqtt_send_client_msg(int sockfd, uint8_t *identifier)
 
 void shut_dead_conn(int sockfd)
 {
+    LOG_PRINT("Need to shut conn sockfd [%d]", sockfd);
     struct server_env *env = get_server_env();
     assert(env != NULL);
     
     struct client_data *d;
     d = &env->clients[sockfd];
+    if(d->client_id == NULL)
+    {   
+        LOG_PRINT("In function shut_dead_conn");
+        LOG_PRINT("the client has no id");
+    }else{
+        rm_client_id(d->client_id);
+        LOG_PRINT("Info Remove the Clientid [%s] from Redis", d->client_id);
+    }
     remove_timer(env->timer_list, &(d->timer));
     removefd(env, sockfd);
 }
@@ -274,15 +285,23 @@ int mqtt_handler_publish(struct mqtt_packet *packet)
 
     mqtt_publish_content(packet);  
     LOG_PRINT("Publish Message Content [%s]", packet->msg.body);
+    LOG_PRINT("Publish Topic Content [%s]", packet->msg.topic);
     struct mqtt_topic *topic;
-    struct mqtt_string *pstr_topic = mqtt_string_init(packet->msg.body);
-    struct mqtt_string *pstr_topic_name  = mqtt_string_init(packet->msg.topic);
-    topic = mqtt_topic_get(*pstr_topic);
+    struct mqtt_string *pstr_topic = malloc(sizeof(struct mqtt_string));
+    mqtt_string_alloc(pstr_topic, packet->msg.body, strlen(packet->msg.body));
+    struct mqtt_string *pstr_topic_name  = malloc(sizeof(struct mqtt_string));
+    mqtt_string_alloc(pstr_topic_name,packet->msg.topic, strlen(packet->msg.topic));
+    LOG_PRINT("X");
+    topic = mqtt_topic_get(*pstr_topic_name);
+    LOG_PRINT("Y");
     if(topic == NULL)
     {
+        LOG_PRINT("Z");
         mqtt_topic_add(*pstr_topic_name, &topic);
     }
+    LOG_PRINT("A");
     assert(topic != NULL);
+
     _mqtt_topic_add_msg(topic, *pstr_topic);
     LOG_PRINT("Added the message [%s] to the topic [%s]", packet->msg.body, packet->msg.topic);    
     update_conn_timer(packet->fd->sockfd); 
@@ -333,8 +352,7 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
         {
             return ret;
         }
-    }
-    
+    } 
     if( (ret = mqtt_parse_subtopices(packet)) != MQTT_ERR_SUCCESS)
     {
         return ret;
@@ -345,6 +363,7 @@ int mqtt_handler_subscribe(struct mqtt_packet *packet)
 
 int mqtt_set_env(struct mqtt_packet *packet)
 {
+    LOG_PRINT("In function mqtt_set_env");
     struct server_env *env = get_server_env();
     if(!env)
     {
@@ -356,10 +375,14 @@ int mqtt_set_env(struct mqtt_packet *packet)
     client->client_id = malloc(sizeof(uint8_t)* strlen(packet->identifier));
     assert(client->client_id);
     memcpy(client->client_id, packet->identifier, sizeof(uint8_t) * strlen(packet->identifier));
-    struct mqtt_string *str_clientid = mqtt_string_init(packet->identifier);
+    struct mqtt_string *str_clientid = malloc(sizeof(struct mqtt_string));
+    mqtt_string_alloc(str_clientid, packet->identifier, strlen(packet->identifier));
+    LOG_PRINT("A"); 
     struct client_in_hash *c_node = (struct client_in_hash *)mqtt_hash_get(env->client_table, *str_clientid);
+    LOG_PRINT("B");
     if(c_node == NULL)
     {
+        LOG_PRINT("Can not find the client");
         struct client_in_hash *c_node_tmp = malloc(sizeof(struct client_in_hash));
         assert(c_node_tmp != NULL);
         memset(c_node_tmp, '\0', sizeof(struct client_in_hash));
@@ -397,21 +420,22 @@ int mqtt_handler_ping(struct mqtt_packet *packet)
 
 int mqtt_ping_resp(struct mqtt_packet *packet)
 {
+    LOG_PRINT("Send a ping resp to the client");
     int ret;
     struct mqtt_packet *ack_packet;
     ack_packet = malloc(sizeof(struct mqtt_packet));
-    memset(ack_packet, '\0', sizeof(struct mqtt_packet));
     if(!ack_packet)
     {
         return MQTT_ERR_NOMEM;
     } 
+    memset(ack_packet, '\0', sizeof(struct mqtt_packet));
     ack_packet->fd = packet->fd;
     ack_packet->remain_length = 0;
     ack_packet->command = 0xd0;
     ret = mqtt_packet_alloc(ack_packet);
-    mqtt_console_payload(ack_packet);
     if(ret != MQTT_ERR_SUCCESS) return ret;
 
+    LOG_PRINT("Start to send ping resp"); 
     if( (ret == mqtt_send_payload(ack_packet)) != MQTT_ERR_SUCCESS)
     {
         return ret;

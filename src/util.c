@@ -38,7 +38,6 @@ void reset_oneshot(struct server_env *env, int fd)
 
 void set_fd_out(struct server_env *env, int fd, void *str, int len)
 {
-    printf("Begin to set fd out===========\n");
     struct epoll_event event;
     struct mqtt_epoll_data *fd_str;
     fd_str = (struct mqtt_epoll_data *) malloc(sizeof(struct mqtt_epoll_data));
@@ -63,5 +62,4 @@ void removefd(struct server_env *env, int fd)
 {
     epoll_ctl(env->epollfd, EPOLL_CTL_DEL, fd, 0);
     close(fd);
-    printf("close fd %d\n", fd);
 }

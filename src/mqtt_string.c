@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "mqtt_string.h"
+#include "log.h"
 
 void mqtt_string_alloc(struct mqtt_string *string, uint8_t *str, int len)
 {
@@ -29,6 +30,7 @@ int mqtt_string_copy(struct mqtt_string *src, struct mqtt_string *dst)
     {
         dst->body[i] = src->body[i];
     }
+    dst->body[i] = '\0';
     return 0;
 }
 
@@ -46,16 +48,3 @@ int mqtt_string_cmp(struct mqtt_string str_foo, struct mqtt_string str_bar)
     return 0;
 }
 
-struct mqtt_string *mqtt_string_init(const uint8_t *str)
-{
-    struct mqtt_string *string;
-    int len = strlen(str);
-    string = malloc(sizeof(struct mqtt_string));
-    assert(string);
-    string->body = malloc(sizeof(uint8_t) * len);
-    assert(string->body);
-    
-    memcpy(string->body, str, len);
-    string->len = len;
-    return string;
-}
