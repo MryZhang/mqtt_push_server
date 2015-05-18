@@ -141,32 +141,22 @@ struct topic_msg * mqtt_topic_msg_init(struct mqtt_string msg)
 //distribute the message to the clients which subscribe the topic
 int mqtt_distribute_msg(struct client_in_hash *client_n, struct mqtt_topic *topic, struct topic_msg *msg_n)
 {
-    LOG_PRINT("A");
     assert(client_n != NULL && msg_n != NULL);
-    LOG_PRINT("A");
     struct msg_node *p_msg_node = mqtt_msg_init(topic, msg_n->message.body);
-    LOG_PRINT("A");
     if(client_n->head_nsend == NULL)
     {
-    LOG_PRINT("A");
         client_n->head_nsend = client_n->tail_nsend = p_msg_node;
-        return 0;
     }else{
-    LOG_PRINT("A");
         client_n->tail_nsend->next = p_msg_node;
         client_n->tail_nsend = p_msg_node;
     }
-    LOG_PRINT("A");
-    if(client_n->mutex == 1 && client_n->sockfd > 0)
+    if(client_n->sockfd > 0)
     {
-    LOG_PRINT("A");
-        client_n->mutex = 0;
-    LOG_PRINT("A");
-        mqtt_send_client_msg(client_n->sockfd, p_msg_node->packet);
-    LOG_PRINT("A");
-        client_n->mutex = 1;
-    LOG_PRINT("A");
+        LOG_PRINT("In function mqtt_distribute_msg");
+        LOG_PRINT("Send publish message to the client");
+        mqtt_send_client_msg(client_n->sockfd);
     }
+    
     LOG_PRINT("A");
     return 0;
 }

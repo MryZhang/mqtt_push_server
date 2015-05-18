@@ -22,7 +22,6 @@ struct client_in_hash
     struct mqtt_string client_id;
     struct msg_node *head_nsend;  
     struct msg_node *tail_nsend;
-    int mutex;
 };
 struct client_node
 {
