@@ -6,6 +6,7 @@
 
 #include "util.h"
 #include "net.h"
+#include "log.h"
 
 int setnonblocking(int fd)
 {
@@ -60,6 +61,9 @@ void set_fd_in(struct server_env *env, int fd)
 
 void removefd(struct server_env *env, int fd)
 {
+    LOG_PRINT("In function removefd");
     epoll_ctl(env->epollfd, EPOLL_CTL_DEL, fd, 0);
     close(fd);
+    LOG_PRINT("In end of function removefd");
 }
+

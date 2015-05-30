@@ -28,6 +28,11 @@ struct mqtt_topic
     struct msg_list *msg_sd_list;
     struct msg_list *msg_bf_list;
 };
+/* used in the client_in_hash for recoding the topic subscribed by client */
+struct topic_node{
+    struct topic_node *next;
+    struct mqtt_topic *data;
+};
 
 struct mqtt_hash_t *get_topic_table();
 struct mqtt_topic *mqtt_topic_get(struct mqtt_string topic_name);

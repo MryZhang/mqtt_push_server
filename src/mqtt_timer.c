@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
+#include <assert.h>
 
 #include "server.h"
 #include "mqtt_timer.h"
@@ -12,49 +14,45 @@ int timer_init(struct util_timer_list *list)
 
     list->head = NULL;
     list->tail = NULL;
+    pthread_mutex_init(&(list->mutex), NULL);
     return MQTT_ERR_SUCCESS;
 }
 
 int add_timer(struct util_timer_list *list, struct util_timer *timer)
 {
-    LOG_PRINT("add the timer");
+    int ret;
+    LOG_PRINT("Add the timer");
     if(!list || !timer)
     {
         return MQTT_ERR_NULL;
     }
-    LOG_PRINT("A");
+    assert(pthread_mutex_lock(&(list->mutex))==0); 
     if(list->head == NULL)
     {
-    LOG_PRINT("A");
         list->head = timer;
         list->tail = timer;
-    LOG_PRINT("A");
+        assert(pthread_mutex_unlock(&(list->mutex)) == 0);
         return MQTT_ERR_SUCCESS;
     }
-    LOG_PRINT("A");
 
     if(timer->expire < list->head->expire)
     {
-    LOG_PRINT("A");
         timer->next = list->head;
         list->head->prev = timer;
         list->head = timer;
-    LOG_PRINT("A");
+        assert(pthread_mutex_unlock(&(list->mutex)) == 0);
         return MQTT_ERR_SUCCESS;
     }
     
-    LOG_PRINT("A");
-
-    return add_timer_after(list, timer, list->head);
+    ret = add_timer_after(list, timer, list->head);
+    assert(pthread_mutex_unlock(&(list->mutex))==0);
+    return ret;
 }
 int add_timer_after(struct util_timer_list *list, struct util_timer *timer, struct util_timer *tar)
 {
     assert(tar != NULL);
-    LOG_PRINT("A");
     struct util_timer *tmp = tar;
-    LOG_PRINT("A");
     while(tmp->next != NULL && timer->expire > tmp->next->expire) tmp = tmp->next;
-    LOG_PRINT("A");
     if(tmp->next == NULL)
     {
         timer->prev = tmp;
@@ -68,35 +66,27 @@ int add_timer_after(struct util_timer_list *list, struct util_timer *timer, stru
         tmp->next  = timer;
     }
 
-    LOG_PRINT("A");
     return MQTT_ERR_SUCCESS;
 }
 int adjust_timer(struct util_timer_list *list, struct util_timer *timer)
 {
     if(!list || !timer) return MQTT_ERR_NULL;
-    LOG_PRINT("A");
     struct util_timer *tmp;
-    LOG_PRINT("A");
     
     if(timer == list->tail) return MQTT_ERR_SUCCESS;
-    LOG_PRINT("A");
 
     if(timer->expire < timer->next->expire) 
     {
-        LOG_PRINT("ddd");
         return MQTT_ERR_SUCCESS;
     }
-    LOG_PRINT("A");
 
     if(timer == list->head)
     {
-    LOG_PRINT("A");
         list->head->next->prev = NULL;
         list->head = list->head->next;
         timer->next = NULL;
         return add_timer(list, timer);
     }else{
-    LOG_PRINT("A");
         timer->next->prev =timer->prev;
         timer->prev->next = timer->next;
         tmp = timer->next; 
@@ -107,11 +97,18 @@ int adjust_timer(struct util_timer_list *list, struct util_timer *timer)
 
 int remove_timer(struct util_timer_list *list, struct util_timer *timer)
 {
-    if(!list || !list->head || timer) return MQTT_ERR_NULL;
+    LOG_PRINT("In funciton remove_timer");
+    if(!list || !list->head || !timer) return MQTT_ERR_NULL;
+    LOG_PRINT("Remove timer");
+    pthread_mutex_lock(&(list->mutex));
     if(timer == list->head)
     {
         list->head = timer->next;
-        list->head->prev = NULL;
+        if(list->head != NULL){
+            list->head->prev = NULL;
+        }else{
+            list->tail = NULL; 
+        }
     }
     else if(timer == list->tail)
     {
@@ -120,17 +117,25 @@ int remove_timer(struct util_timer_list *list, struct util_timer *timer)
     }
     else
     {
-        timer->next->prev = timer->prev;
-        timer->prev->next = timer->next;
+        if(timer->next != NULL && timer->prev != NULL)
+        {
+            timer->next->prev = timer->prev;
+            timer->prev->next = timer->next;
+        }
     }
+    timer->next = NULL;
+    timer->prev = NULL;
+    pthread_mutex_unlock(&(list->mutex));
+    LOG_PRINT("Timer is Removed");
     return MQTT_ERR_SUCCESS;
 }
 
 void timer_tick(struct util_timer_list *list)
 {
     if(!list || !list->head) return;
-
+    LOG_PRINT("Timer tick!");
     time_t cur = time(NULL);
+    pthread_mutex_lock(&(list->mutex));
     struct util_timer *tmp = list->head;
     while(tmp)
     {
@@ -145,13 +150,23 @@ void timer_tick(struct util_timer_list *list)
         assert(data->sockfd);
         LOG_PRINT("client [%d] time expire", data->sockfd);
         data->dead_clean(data->sockfd);
+        LOG_PRINT("A");
         list->head = tmp->next;
+        LOG_PRINT("A");
         if(list->head)
         {
+            LOG_PRINT("A");
             list->head->prev = NULL;
+        }else{
+            LOG_PRINT("A");
+            list->tail = NULL;
         }
+        LOG_PRINT("A");
         tmp = list->head;
+        LOG_PRINT("A");
     }
+    pthread_mutex_unlock(&(list->mutex));
+    LOG_PRINT("Timer no expire");
 }
 
 void get_client_data(struct util_timer *timer, struct client_data **data)
@@ -159,9 +174,13 @@ void get_client_data(struct util_timer *timer, struct client_data **data)
     *data = (struct client_data *) (timer); 
 }
 
-int inc_timer(struct util_timer_list *list, struct util_timer *timer)
+int inc_timer(struct util_timer_list *list, struct util_timer *timer, uint16_t inctime)
 {
+    int ret;
     LOG_PRINT("Update the timer");
-    timer->expire = time(NULL) + 24; 
-    return adjust_timer(list, timer);
+    pthread_mutex_lock(&(list->mutex));
+    timer->expire = time(NULL) + inctime; 
+    ret = adjust_timer(list, timer);
+    pthread_mutex_unlock(&(list->mutex));
+    return ret;
 }

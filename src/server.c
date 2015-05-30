@@ -58,6 +58,7 @@ void addsig(int sig)
 
 void timer_handler()
 {
+    LOG_PRINT("timer_handler");
     assert(env != NULL);
     timer_tick(env->timer_list);
     alarm(TIMESLOT);
@@ -74,6 +75,7 @@ void* conn_handler(void *arg)
         LOG_PRINT("Start receiving a new packet");
         struct mqtt_packet *packet;
         packet = (struct mqtt_packet *) malloc(sizeof(struct mqtt_packet));
+        assert(packet != NULL);
         memset(packet, '\0', sizeof(struct mqtt_packet));
         uint8_t byte;
         int ret;
@@ -127,21 +129,24 @@ void* conn_handler(void *arg)
                     printf("Start to deal a PING REQ\n");
                     if( (ret = mqtt_handler_ping(packet)) != MQTT_ERR_SUCCESS)
                     {
-                        printf("Error: ping handler errcode [%d] \n", ret);
+                        LOG_PRINT("Error: mqtt_handler_ping errcode [%d]", ret);
                         shut_dead_conn(packet->fd->sockfd);
                     }
                     printf("Deal a PING request\n");
                     break; 
                 case DISCONNECT:
-                    printf("**Info: got a disconnect request\n");
+                    LOG_PRINT("**Info: got a disconnect request");
                     if( (ret = mqtt_handler_disconnect(packet)) != MQTT_ERR_SUCCESS)
                     {
                         printf("Error: disconnect handler errcode [%d] \n", ret);   
                     } 
                     shut_dead_conn(packet->fd->sockfd);
                     printf("Deal a DISCONNECT request\n");
+                    return;
                     break;
                 default:
+                    LOG_PRINT("Unknow command");
+                    LOG_PRINT("Unknow command [%d]", packet->command);
                     break;
             }    
             
@@ -154,6 +159,7 @@ void* conn_handler(void *arg)
         }else{
             if(errno == EAGAIN)
             {   
+                LOG_PRINT("read data later");
                 reset_oneshot(env, sockfd);
                 break;
             }else{
@@ -187,10 +193,10 @@ void et(struct server_env *env, int number, int listenfd)
             time_t cur = time(NULL);
             env->clients[connfd].timer.expire = cur + 20*TIMESLOT;
             env->clients[connfd].dead_clean = shut_dead_conn;
-            assert(add_timer(env->timer_list, &(env->clients[connfd].timer))== MQTT_ERR_SUCCESS);
             LOG_PRINT("Client [%d] init finish", connfd);
         }else if(sockfd == pipefd[0] && (env->events[i].events & EPOLLIN))
         {
+            LOG_PRINT("pipefd event");
             int sig;
             char signals[1024];
             ret = recv(pipefd[0], signals, sizeof(signals), 0);
@@ -225,6 +231,7 @@ void et(struct server_env *env, int number, int listenfd)
             struct fds fds_arg;
             fds_arg.epollfd = env->epollfd;
             fds_arg.sockfd = sockfd;
+            LOG_PRINT("Epoll In Event [%d]", sockfd);
             pthread_create(&thread, NULL, conn_handler, (void *)&fds_arg);        
         }
         else if(env->events[i].events & EPOLLOUT)
@@ -250,8 +257,10 @@ void et(struct server_env *env, int number, int listenfd)
                 }
             }
             LOG_PRINT("End of send data on sockfd [%d]", fd_data->fd);
-            set_fd_in(env, sockfd);  
+            set_fd_in(env, fd_data->fd);  
             //TODO: maybe should free something here
+        }else{
+            LOG_PRINT("Something else happend");
         }
 
     }

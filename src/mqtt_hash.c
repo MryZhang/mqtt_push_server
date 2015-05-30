@@ -127,6 +127,6 @@ void *mqtt_hash_get(struct mqtt_hash_t *hash_t, struct mqtt_string key)
     {
         return NULL;
     }
-    LOG_PRINT("Hash get :key [%d]", node->data);
+    LOG_PRINT("Hash get :data [%d]", node->data);
     return node->data;
 }

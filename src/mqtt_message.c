@@ -195,6 +195,7 @@ int mqtt_topic_sub(struct mqtt_topic *topic, uint8_t *client_id, uint8_t qosflag
     struct client_in_hash *client = mqtt_get_client_s(s_client_id); 
     if(!client)
     {
+        LOG_PRINT("client in hash is null");
         return -1;
     } 
     struct client_node *c_node = malloc(sizeof(struct client_node));

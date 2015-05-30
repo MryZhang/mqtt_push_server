@@ -32,7 +32,7 @@ int mqtt_packet_alloc(struct mqtt_packet *packet)
     }else{
         while(remain_length > 0 && count < 5)
         {
-            byte = remain_length % 8;
+            byte = remain_length % 128;
             remain_length = remain_length >> 7;
             if(remain_length > 0)
             {   
@@ -66,14 +66,19 @@ int mqtt_remain_length(struct mqtt_packet *packet)
     int multiplier = 1, recv_len, byte_num = 0;
     uint32_t value = 0;
     uint8_t digit;
+    LOG_PRINT("Remain lengthddd");
     do{
         recv_len = mqtt_net_read(packet->fd->sockfd, (void *)&digit, 1);
         if(recv_len == 1)
         {
+            LOG_PRINT("remain length receive a byte");
             value += (digit & 0x7F) * multiplier;
             multiplier *= 128;
             byte_num++;
         }else{
+            LOG_PRINT("In function: mqtt_remain_length");
+            LOG_PRINT("read 1 byte failure, errcode [%d]", recv_len);
+            perror("mqtt_net_read remainlength");
             return MQTT_ERR_PROTOCOL;
         }
     }while((digit & 0x80) != 0 && byte_num <= 4);
@@ -225,6 +230,7 @@ int mqtt_read_livetimer(struct mqtt_packet *packet)
 
 int mqtt_send_payload(struct mqtt_packet *packet)
 {
+    LOG_PRINT("In funciton send_payload send payload");
     struct server_env *env = get_server_env();
     assert(env);
     set_fd_out(env, packet->fd->sockfd, (void *)packet->payload, packet->packet_len);
@@ -311,9 +317,6 @@ int mqtt_parse_subtopices(struct mqtt_packet *packet)
             mqtt_topic_add(ms_topic, &topic); 
         }
         assert(topic != NULL);
-        if(topic->msg_bf_list == NULL) LOG_PRINT("msg_bf_list is NULL");
-        topic = mqtt_topic_get(ms_topic);
-        assert(topic!=NULL);
         if(topic->msg_bf_list == NULL) 
             LOG_PRINT("msg_bf_list is NULL2");
         else

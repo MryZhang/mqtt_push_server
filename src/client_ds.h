@@ -13,7 +13,9 @@ struct client_data
     struct sockaddr_in address;
     void (*dead_clean)(int sockfd);  // the callback function used to shutdown the connection which is unactivitive for a long time
     uint8_t *client_id; 
+    uint16_t expire_time;
     struct client_in_hash *client_hash_node;
+    uint8_t f_clean;
 };
 
 struct client_in_hash
@@ -22,6 +24,7 @@ struct client_in_hash
     struct mqtt_string client_id;
     struct msg_node *head_nsend;  
     struct msg_node *tail_nsend;
+    struct topic_node *topic_head;
 };
 struct client_node
 {

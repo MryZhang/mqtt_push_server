@@ -61,3 +61,8 @@ struct client_in_hash *_mqtt_init_client_in_hash(struct mqtt_string client_id, i
     node->head_nsend = node->tail_nsend = NULL;
     return node;
 }
+
+void rm_client_node(uint8_t *client_id)
+{
+    
+}

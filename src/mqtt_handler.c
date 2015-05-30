@@ -54,6 +54,21 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
         return ret;
     }
     LOG_PRINT("livetime [%d]", packet->alive_timer);
+    if(packet->alive_timer <= 0)
+    {
+        packet->alive_timer = 30;
+    }
+
+    struct server_env *env = get_server_env();
+    assert(env != NULL);
+    struct client_data *client = &(env->clients[packet->fd->sockfd]);
+    time_t now = time(NULL);    
+    client->expire_time = packet->alive_timer + packet->alive_timer / 2;
+    // add the clean flag to the client _data
+    client->f_clean = packet->conn_f.f_clean;
+    // caculate the expire time 
+    client->timer.expire = now + client->expire_time;
+    assert(add_timer(env->timer_list, &(client->timer))== MQTT_ERR_SUCCESS);
     if((ret = mqtt_str(packet, &packet->identifier)) != MQTT_ERR_SUCCESS)
     {
         return ret;
@@ -61,6 +76,7 @@ int mqtt_handler_connect(struct mqtt_packet *packet)
     LOG_PRINT("client identitfier [%s]", packet->identifier);
     int len = 0;
     while(packet->identifier[len] != '\0') len++;
+    // mqtt prototcal v3.1 : the length of identifier is less than 23
     if(len > 23)
     {
         mqtt_conn_ack(packet, 2);
@@ -241,6 +257,7 @@ int mqtt_send_client_msg(int sockfd)
 
 void shut_dead_conn(int sockfd)
 {
+    printf("The client [%d] shut down\n", sockfd);
     LOG_PRINT("Need to shut conn sockfd [%d]", sockfd);
     struct server_env *env = get_server_env();
     assert(env != NULL);
@@ -253,6 +270,11 @@ void shut_dead_conn(int sockfd)
         LOG_PRINT("the client has no id");
     }else{
         rm_client_id(d->client_id);
+        // if clean session is set then remove everything about this client
+        if(d->f_clean == 0x01)
+        {
+            rm_client_node(d->client_id);
+        }
         LOG_PRINT("Info Remove the Clientid [%s] from Redis", d->client_id);
     }
     remove_timer(env->timer_list, &(d->timer));
@@ -323,7 +345,7 @@ int update_conn_timer(int sockfd)
     struct server_env *env = get_server_env();
     assert(env);
     struct client_data *p_client = &(env->clients[sockfd]);
-    return inc_timer(env->timer_list, &(p_client->timer)); 
+    return inc_timer(env->timer_list, &(p_client->timer), p_client->expire_time); 
 }
 
 int mqtt_handler_subscribe(struct mqtt_packet *packet)
@@ -382,8 +404,10 @@ int mqtt_set_env(struct mqtt_packet *packet)
     
     struct client_data *client = &(env->clients[packet->fd->sockfd]);
     assert(packet->identifier != NULL);
-    client->client_id = malloc(sizeof(uint8_t)* strlen(packet->identifier));
+    int len = strlen(packet->identifier) + 1;
+    client->client_id = malloc(sizeof(uint8_t)* len);
     assert(client->client_id);
+    memset(client->client_id, '\0', len);
     memcpy(client->client_id, packet->identifier, sizeof(uint8_t) * strlen(packet->identifier));
     struct mqtt_string *str_clientid = malloc(sizeof(struct mqtt_string));
     mqtt_string_alloc(str_clientid, packet->identifier, strlen(packet->identifier));
@@ -456,11 +480,12 @@ int mqtt_ping_resp(struct mqtt_packet *packet)
 int mqtt_handler_disconnect(struct mqtt_packet *packet)
 {
     int ret;
+    LOG_PRINT("handler disconnect");
     if( (ret = mqtt_remain_length(packet)) != MQTT_ERR_SUCCESS)
     {
         return ret;
     }  
-    
+    LOG_PRINT("Info: handler disconnect"); 
     return MQTT_ERR_SUCCESS;
 }
 

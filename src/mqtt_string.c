@@ -9,6 +9,9 @@
 
 void mqtt_string_alloc(struct mqtt_string *string, uint8_t *str, int len)
 {
+    LOG_PRINT("In function mqtt_string_alloc:");
+    LOG_PRINT("string : [%s], len: [%d]", str, strlen(str));
+
     assert(string != NULL);
     //string->len = strlen(str);  data struct strlen wrong 
     assert(len > 0);
